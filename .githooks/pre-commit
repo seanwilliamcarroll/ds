@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Run clang-format on staged .cpp and .hpp files, then re-stage them.
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|hpp)$')
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+echo "==> clang-format: formatting staged files"
+
+for file in $STAGED_FILES; do
+    echo "    $file"
+    clang-format -i "$file"
+    git add "$file"
+done
+
+echo "==> clang-format: done"
