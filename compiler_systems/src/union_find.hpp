@@ -3,12 +3,10 @@
 #include <vector>
 
 // Union-Find (Disjoint Set Union)
-//
-// TODO: Implement with union by rank.
 
 class UnionFind {
 public:
-  explicit UnionFind(int n) : parent(n, 0) {
+  explicit UnionFind(int n) : parent(n, 0), rank(n, 0) {
     for (int node = 0; node < n; ++node) {
       parent[node] = node;
     }
@@ -28,17 +26,24 @@ public:
   }
 
   void unite(int x, int y) {
-
     auto parent_x = find(x);
     auto parent_y = find(y);
     if (parent_x == parent_y) {
       return;
     }
 
-    parent[parent_y] = parent_x;
+    if (rank[parent_x] < rank[parent_y]) {
+      parent[parent_x] = parent_y;
+    } else if (rank[parent_x] > rank[parent_y]) {
+      parent[parent_y] = parent_x;
+    } else {
+      parent[parent_x] = parent_y;
+      rank[parent_y]++;
+    }
   }
 
   bool connected(int x, int y) { return find(x) == find(y); }
 
   std::vector<int> parent;
+  std::vector<int> rank;
 };
