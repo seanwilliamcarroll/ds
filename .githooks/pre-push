@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+echo "==> pre-push: building and running tests"
+
+cmake --build build 2>&1
+if [ $? -ne 0 ]; then
+    echo "==> pre-push: BUILD FAILED — push blocked"
+    exit 1
+fi
+
+ctest --test-dir build --output-on-failure 2>&1
+if [ $? -ne 0 ]; then
+    echo "==> pre-push: TESTS FAILED — push blocked"
+    exit 1
+fi
+
+echo "==> pre-push: all tests passed"
