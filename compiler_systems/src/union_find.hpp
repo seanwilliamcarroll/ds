@@ -15,12 +15,16 @@ public:
   }
 
   int find(int x) {
-    int x_walker = x;
-    while (parent[x_walker] != x_walker) {
-      x_walker = parent[x_walker];
+    int root_node = x;
+    while (parent[root_node] != root_node) {
+      root_node = parent[root_node];
     }
-    parent[x] = x_walker;
-    return x_walker;
+    while (parent[x] != root_node) {
+      int next_node = parent[x];
+      parent[x] = root_node;
+      x = next_node;
+    }
+    return root_node;
   }
 
   void unite(int x, int y) {
