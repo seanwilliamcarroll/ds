@@ -1,7 +1,5 @@
 #pragma once
 
-#include <iostream>
-#include <memory>
 #include <unordered_set>
 
 // Union-Find (Disjoint Set Union)
@@ -50,24 +48,10 @@ public:
       x_component->elements.insert(element);
       node_to_sets[element] = x_component;
     }
+    // Could remove entry from components, but more trouble than it's worth?
   }
 
   bool connected(int x, int y) { return find(x) == find(y); }
-
-  // void print() const {
-  //   std::cout << "Print:" << std::endl;
-  //   for (const auto &[node, node_set] : node_to_sets) {
-  //     std::cout << node << " : ";
-  //     if (!node_set) {
-  //       std::cout << "NULL" << std::endl;
-  //       continue;
-  //     }
-  //     for (auto element : *node_set) {
-  //       std::cout << element << ", ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
 
   std::vector<Component> components;
 
