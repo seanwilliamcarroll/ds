@@ -2,53 +2,67 @@
 
 #include <benchmark/benchmark.h>
 
-// Adversarial case: build a chain where each unite attaches the
-// accumulated tree under a new single node, creating maximum depth.
-// Then repeatedly find the deepest node.
+// Four variants to compare
+using UF_None = UnionFind<false, false>;
+using UF_RankOnly = UnionFind<true, false>;
+using UF_CompressionOnly = UnionFind<false, true>;
+using UF_Both = UnionFind<true, true>;
+
+// Adversarial case: build a chain that creates maximum depth,
+// then find the deepest node.
+template <typename UF>
 static void BM_FindAfterAdversarialChain(benchmark::State &state) {
   int n = state.range(0);
 
   for (auto _ : state) {
     state.PauseTiming();
-    UnionFind uf(n);
-    // Build worst-case chain: unite(1,0), unite(2,1), unite(3,2), ...
-    // Each time the larger tree gets reparented under a fresh node.
+    UF uf(n);
     for (int i = 1; i < n; ++i) {
       uf.unite(i, i - 1);
     }
     state.ResumeTiming();
 
-    // Find on the node that's deepest in the chain
     benchmark::DoNotOptimize(uf.find(0));
   }
 }
-BENCHMARK(BM_FindAfterAdversarialChain)->Range(1 << 10, 1 << 20);
 
-// Measure repeated finds after chain construction.
-// Path compression means the first find is expensive but subsequent
-// ones should be nearly free.
+BENCHMARK(BM_FindAfterAdversarialChain<UF_None>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_FindAfterAdversarialChain<UF_RankOnly>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_FindAfterAdversarialChain<UF_CompressionOnly>)
+    ->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_FindAfterAdversarialChain<UF_Both>)->Range(1 << 10, 1 << 20);
+
+// Repeated finds after chain construction.
+// Shows the effect of path compression on subsequent lookups.
+template <typename UF>
 static void BM_RepeatedFindAfterChain(benchmark::State &state) {
   int n = state.range(0);
-  UnionFind uf(n);
+  UF uf(n);
   for (int i = 1; i < n; ++i) {
     uf.unite(i, i - 1);
   }
 
-  // First find compresses the path
+  // First find triggers compression (if enabled)
   uf.find(0);
 
   for (auto _ : state) {
     benchmark::DoNotOptimize(uf.find(0));
   }
 }
-BENCHMARK(BM_RepeatedFindAfterChain)->Range(1 << 10, 1 << 20);
 
-// Random unites then random finds — the "typical" workload.
+BENCHMARK(BM_RepeatedFindAfterChain<UF_None>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RepeatedFindAfterChain<UF_RankOnly>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RepeatedFindAfterChain<UF_CompressionOnly>)
+    ->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RepeatedFindAfterChain<UF_Both>)->Range(1 << 10, 1 << 20);
+
+// Random unites then random finds — typical workload.
+template <typename UF>
 static void BM_RandomUnitesAndFinds(benchmark::State &state) {
   int n = state.range(0);
 
   for (auto _ : state) {
-    UnionFind uf(n);
+    UF uf(n);
     for (int i = 0; i < n; ++i) {
       uf.unite(i % 97, i % 53);
     }
@@ -57,6 +71,10 @@ static void BM_RandomUnitesAndFinds(benchmark::State &state) {
     }
   }
 }
-BENCHMARK(BM_RandomUnitesAndFinds)->Range(1 << 10, 1 << 20);
+
+BENCHMARK(BM_RandomUnitesAndFinds<UF_None>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_RankOnly>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_CompressionOnly>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_Both>)->Range(1 << 10, 1 << 20);
 
 BENCHMARK_MAIN();

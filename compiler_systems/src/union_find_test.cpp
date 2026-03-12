@@ -2,21 +2,24 @@
 
 #include <gtest/gtest.h>
 
+// Tests run against the fully-optimized variant
+using UF = UnionFind<true, true>;
+
 TEST(UnionFindTest, HelloWorld) {
-  UnionFind uf(5);
+  UF uf(5);
   // Sanity check: nothing is connected yet
   EXPECT_FALSE(uf.connected(0, 1));
 }
 
 TEST(UnionFindTest, BasicUnion) {
-  UnionFind uf(5);
+  UF uf(5);
   uf.unite(0, 1);
   EXPECT_TRUE(uf.connected(0, 1));
   EXPECT_FALSE(uf.connected(0, 2));
 }
 
 TEST(UnionFindTest, SelfUniteAndConnected) {
-  UnionFind uf(3);
+  UF uf(3);
   uf.unite(0, 0);
   EXPECT_TRUE(uf.connected(0, 0));
   EXPECT_TRUE(uf.connected(1, 1));
@@ -27,7 +30,7 @@ TEST(UnionFindTest, ChainConnectivity) {
   // Build a chain: 0-1-2-3-4
   // All nodes should end up connected, and find should return
   // a consistent root for all of them.
-  UnionFind uf(5);
+  UF uf(5);
   uf.unite(0, 1);
   uf.unite(1, 2);
   uf.unite(2, 3);
@@ -49,7 +52,7 @@ TEST(UnionFindTest, ChainConnectivity) {
 
 TEST(UnionFindTest, MergeTwoGroups) {
   // Build two separate groups, then merge them
-  UnionFind uf(6);
+  UF uf(6);
   uf.unite(0, 1);
   uf.unite(1, 2);
   uf.unite(3, 4);
@@ -73,7 +76,7 @@ TEST(UnionFindTest, MergeTwoGroups) {
 TEST(UnionFindTest, ConnectedComponents) {
   // n=7, edges: {0,1}, {1,2}, {3,4}, {5,6}
   // Expected: 3 components: {0,1,2}, {3,4}, {5,6}
-  UnionFind uf(7);
+  UF uf(7);
   uf.unite(0, 1);
   uf.unite(1, 2);
   uf.unite(3, 4);
@@ -82,8 +85,9 @@ TEST(UnionFindTest, ConnectedComponents) {
   // Count roots: a node is a root if find(i) == i
   int components = 0;
   for (int i = 0; i < 7; ++i) {
-    if (uf.find(i) == i)
+    if (uf.find(i) == i) {
       components++;
+    }
   }
   EXPECT_EQ(components, 3);
 }
