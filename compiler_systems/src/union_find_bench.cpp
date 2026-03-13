@@ -12,7 +12,7 @@ using UF_Both = UnionFind<true, true>;
 // then find the deepest node.
 template <typename UF>
 static void BM_FindAfterAdversarialChain(benchmark::State &state) {
-  int n = state.range(0);
+  int n = static_cast<int>(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -36,7 +36,7 @@ BENCHMARK(BM_FindAfterAdversarialChain<UF_Both>)->Range(1 << 10, 1 << 18);
 // Shows the effect of path compression on subsequent lookups.
 template <typename UF>
 static void BM_RepeatedFindAfterChain(benchmark::State &state) {
-  int n = state.range(0);
+  int n = static_cast<int>(state.range(0));
   UF uf(n);
   for (int i = 1; i < n; ++i) {
     uf.unite(i, i - 1);
@@ -59,7 +59,7 @@ BENCHMARK(BM_RepeatedFindAfterChain<UF_Both>)->Range(1 << 10, 1 << 18);
 // Random unites then random finds — typical workload.
 template <typename UF>
 static void BM_RandomUnitesAndFinds(benchmark::State &state) {
-  int n = state.range(0);
+  int n = static_cast<int>(state.range(0));
 
   for (auto _ : state) {
     UF uf(n);

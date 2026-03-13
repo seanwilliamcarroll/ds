@@ -7,14 +7,14 @@
 // --- Helpers ---
 
 // Generate words with shared prefixes (dense trie)
-static std::vector<std::string> generateDenseWords(int count) {
+static std::vector<std::string> generateDenseWords(int64_t count) {
   std::vector<std::string> words;
-  words.reserve(count);
-  for (int i = 0; i < count; ++i) {
+  words.reserve(static_cast<size_t>(count));
+  for (int64_t i = 0; i < count; ++i) {
     // Creates words like "aaa", "aab", "aac", ... sharing long prefixes
     std::string word;
-    int val = i;
-    for (int d = 0; d < 6; ++d) {
+    int64_t val = i;
+    for (int64_t d = 0; d < 6; ++d) {
       word += 'a' + (val % 10);
       val /= 10;
     }
@@ -24,13 +24,13 @@ static std::vector<std::string> generateDenseWords(int count) {
 }
 
 // Generate words with little prefix sharing (sparse trie)
-static std::vector<std::string> generateSparseWords(int count) {
+static std::vector<std::string> generateSparseWords(int64_t count) {
   std::vector<std::string> words;
-  words.reserve(count);
-  for (int i = 0; i < count; ++i) {
+  words.reserve(static_cast<size_t>(count));
+  for (int64_t i = 0; i < count; ++i) {
     std::string word;
-    int val = i;
-    for (int d = 0; d < 6; ++d) {
+    int64_t val = i;
+    for (int64_t d = 0; d < 6; ++d) {
       word += 'a' + (val % 26);
       val /= 26;
     }
@@ -42,7 +42,7 @@ static std::vector<std::string> generateSparseWords(int count) {
 // --- Insert benchmarks ---
 
 template <typename T> static void BM_InsertDense(benchmark::State &state) {
-  int n = state.range(0);
+  int64_t n = state.range(0);
   auto words = generateDenseWords(n);
   for (auto _ : state) {
     T trie;
@@ -54,7 +54,7 @@ template <typename T> static void BM_InsertDense(benchmark::State &state) {
 }
 
 template <typename T> static void BM_InsertSparse(benchmark::State &state) {
-  int n = state.range(0);
+  int64_t n = state.range(0);
   auto words = generateSparseWords(n);
   for (auto _ : state) {
     T trie;
@@ -68,7 +68,7 @@ template <typename T> static void BM_InsertSparse(benchmark::State &state) {
 // --- Search benchmarks ---
 
 template <typename T> static void BM_SearchHitDense(benchmark::State &state) {
-  int n = state.range(0);
+  int64_t n = state.range(0);
   auto words = generateDenseWords(n);
   T trie;
   for (const auto &w : words) {
@@ -83,7 +83,7 @@ template <typename T> static void BM_SearchHitDense(benchmark::State &state) {
 }
 
 template <typename T> static void BM_SearchMiss(benchmark::State &state) {
-  int n = state.range(0);
+  int64_t n = state.range(0);
   auto words = generateDenseWords(n);
   T trie;
   for (const auto &w : words) {
@@ -91,7 +91,7 @@ template <typename T> static void BM_SearchMiss(benchmark::State &state) {
   }
 
   for (auto _ : state) {
-    for (int i = 0; i < n; ++i) {
+    for (int64_t i = 0; i < n; ++i) {
       benchmark::DoNotOptimize(trie.search("zzzzzzz"));
     }
   }
@@ -115,7 +115,7 @@ BENCHMARK(BM_SearchMiss<PtrTrie>)->Range(1 << 8, 1 << 16);
 
 template <typename T>
 static void BM_GetWordsWithPrefix(benchmark::State &state) {
-  int n = state.range(0);
+  int64_t n = state.range(0);
   auto words = generateDenseWords(n);
   T trie;
   for (const auto &w : words) {

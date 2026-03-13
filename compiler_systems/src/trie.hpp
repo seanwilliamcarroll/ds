@@ -12,6 +12,24 @@ class ArenaTrie {
     static constexpr char FIRST_LETTER = 'a';
     bool is_end_of_word = false;
     std::array<Node *, VOCABULARY_LENGTH> children{};
+
+    Node *const &get_child(char character) const {
+      return children[static_cast<size_t>(character - FIRST_LETTER)];
+    }
+
+    Node *&get_child(char character) {
+      return const_cast<Node *&>(
+          static_cast<const Node *>(this)->get_child(character));
+    }
+
+    Node *const &get_child_by_index(size_t index) const {
+      return children[index];
+    }
+
+    Node *&get_child_by_index(size_t index) {
+      return const_cast<Node *&>(
+          static_cast<const Node *>(this)->get_child_by_index(index));
+    }
   };
 
 public:
@@ -20,8 +38,7 @@ public:
   void insert(const std::string &word) {
     auto current_node_ptr = nodes.front().get();
     for (const auto character : word) {
-      auto &child_node_ptr =
-          current_node_ptr->children[character - Node::FIRST_LETTER];
+      auto &child_node_ptr = current_node_ptr->get_child(character);
       if (child_node_ptr == nullptr) {
         nodes.push_back(std::make_unique<Node>());
         child_node_ptr = nodes.back().get();
@@ -75,7 +92,7 @@ public:
       }
       for (size_t child_index = 0; child_index < Node::VOCABULARY_LENGTH;
            ++child_index) {
-        auto child = node_ptr->children[child_index];
+        auto child = node_ptr->get_child_by_index(child_index);
         if (child == nullptr) {
           continue;
         }
@@ -91,8 +108,7 @@ private:
   const Node *find_last_node(const std::string &word) const {
     auto current_node_ptr = nodes.front().get();
     for (const auto character : word) {
-      auto child_node_ptr =
-          current_node_ptr->children[character - Node::FIRST_LETTER];
+      auto child_node_ptr = current_node_ptr->get_child(character);
       if (child_node_ptr == nullptr) {
         return nullptr;
       }
@@ -115,6 +131,24 @@ class PtrTrie {
     static constexpr char FIRST_LETTER = 'a';
     bool is_end_of_word = false;
     std::array<std::unique_ptr<Node>, VOCABULARY_LENGTH> children{};
+
+    const std::unique_ptr<Node> &get_child(char character) const {
+      return children[static_cast<size_t>(character - FIRST_LETTER)];
+    }
+
+    std::unique_ptr<Node> &get_child(char character) {
+      return const_cast<std::unique_ptr<Node> &>(
+          static_cast<const Node *>(this)->get_child(character));
+    }
+
+    const std::unique_ptr<Node> &get_child_by_index(size_t index) const {
+      return children[index];
+    }
+
+    std::unique_ptr<Node> &get_child_by_index(size_t index) {
+      return const_cast<std::unique_ptr<Node> &>(
+          static_cast<const Node *>(this)->get_child_by_index(index));
+    }
   };
 
 public:
@@ -123,8 +157,7 @@ public:
   void insert(const std::string &word) {
     auto current_node_ptr = root.get();
     for (const auto character : word) {
-      auto &child_ptr =
-          current_node_ptr->children[character - Node::FIRST_LETTER];
+      auto &child_ptr = current_node_ptr->get_child(character);
       if (child_ptr == nullptr) {
         child_ptr = std::make_unique<Node>();
       }
@@ -157,8 +190,7 @@ public:
     std::vector<std::unique_ptr<Node> *> parent_chain;
     for (const auto character : word) {
       auto current_node_ptr = current_node_unique_ptr->get();
-      auto child_unique_ptr =
-          &current_node_ptr->children[character - Node::FIRST_LETTER];
+      auto child_unique_ptr = &current_node_ptr->get_child(character);
       auto child_ptr = child_unique_ptr->get();
       if (child_ptr == nullptr) {
         return false;
@@ -207,7 +239,7 @@ public:
       }
       for (size_t child_index = 0; child_index < Node::VOCABULARY_LENGTH;
            ++child_index) {
-        auto child = node_ptr->children[child_index].get();
+        auto child = node_ptr->get_child_by_index(child_index).get();
         if (child == nullptr) {
           continue;
         }
@@ -223,8 +255,7 @@ private:
   const Node *find_last_node(const std::string &word) const {
     auto current_node_ptr = root.get();
     for (const auto character : word) {
-      auto &child_node_ptr =
-          current_node_ptr->children[character - Node::FIRST_LETTER];
+      auto &child_node_ptr = current_node_ptr->get_child(character);
       if (child_node_ptr == nullptr) {
         return nullptr;
       }
@@ -237,5 +268,6 @@ private:
     return const_cast<Node *>(
         static_cast<const PtrTrie *>(this)->find_last_node(word));
   }
+
   std::unique_ptr<Node> root;
 };
