@@ -121,15 +121,16 @@ public:
   PtrTrie() : root(std::make_unique<Node>()) {}
 
   void insert(const std::string &word) {
-    auto root_ptr = root.get();
+    auto current_node_ptr = root.get();
     for (const auto character : word) {
-      auto &child_ptr = root_ptr->children[character - Node::FIRST_LETTER];
+      auto &child_ptr =
+          current_node_ptr->children[character - Node::FIRST_LETTER];
       if (child_ptr == nullptr) {
         child_ptr = std::make_unique<Node>();
       }
-      root_ptr = child_ptr.get();
+      current_node_ptr = child_ptr.get();
     }
-    root_ptr->is_end_of_word = true;
+    current_node_ptr->is_end_of_word = true;
   }
 
   bool search(const std::string &word) const {
