@@ -1,6 +1,8 @@
 # Benchmarking Union-Find's Two Optimizations
 
-I'd heard of Union-Find — it shows up on every list of "data structures you should know." But I didn't really know anything about it beyond the name and the basic idea: track which elements are in the same group. I'm glad I decided to actually dig in, because it turned out to be far more interesting and elegant than I expected.
+**TL;DR:** A completely opaque data structure turned out to be a flat array of ints with two elegant optimizations — I benchmarked each one to understand what it actually contributes.
+
+I'd heard of Union-Find — it shows up on every list of "data structures you should know." But I didn't really know anything about it beyond the name and the basic idea: track which elements are in the same group. It was completely opaque to me. I'm glad I decided to actually dig in, because what I found was one of the most elegant data structures I've encountered: the entire thing is a flat array of ints, and two simple optimizations make it effectively constant-time.
 
 ---
 
@@ -154,6 +156,8 @@ The `if constexpr` branches compile away entirely, so each variant has zero over
 ## Benchmarks
 
 All numbers are from release builds on Apple Silicon (10-core M-series, 4 MiB L2 per core) using Google Benchmark. I ran debug builds too — the comparison turned out to be part of the story.
+
+Raw benchmark data: [release](../compiler_systems/union_find_bench_release.txt), [debug](../compiler_systems/union_find_bench_debug.txt)
 
 ### Adversarial chain: one find after worst-case construction
 
