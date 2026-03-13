@@ -3,12 +3,15 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 class ArenaTrie {
   struct Node {
+    static constexpr size_t VOCABULARY_LENGTH = 26;
+    static constexpr char FIRST_LETTER = 'a';
     bool is_end_of_word = false;
-    std::array<Node *, 26> children{};
+    std::array<Node *, VOCABULARY_LENGTH> children{};
   };
 
 public:
@@ -17,7 +20,8 @@ public:
   void insert(const std::string &word) {
     auto current_node_ptr = nodes.front().get();
     for (const auto character : word) {
-      auto &child_node_ptr = current_node_ptr->children[character - 'a'];
+      auto &child_node_ptr =
+          current_node_ptr->children[character - Node::FIRST_LETTER];
       if (child_node_ptr == nullptr) {
         nodes.push_back(std::make_unique<Node>());
         child_node_ptr = nodes.back().get();
@@ -41,20 +45,67 @@ public:
   }
 
   bool remove(const std::string &word) {
-    // TODO: Remove word from the trie. Return true if the word was present.
-    return false;
+    // With the arena, is there a strategy to reap empty nodes?
+    // Or could possibly grow and grow after many inserts and removals?
+    // Would depend on intended use cases I suppose
+    Node *final_node = find_last_node(word);
+    if (final_node == nullptr) {
+      return false;
+    }
+    auto was_present = final_node->is_end_of_word;
+    final_node->is_end_of_word = false;
+    return was_present;
   }
 
   std::vector<std::string> getWordsWithPrefix(const std::string &prefix) const {
-    // TODO: Return all stored words that start with prefix.
-    return {};
+    const Node *end_of_prefix = find_last_node(prefix);
+    if (end_of_prefix == nullptr) {
+      return {};
+    }
+    std::vector<std::string> output;
+    // DFS our way through
+    using IntermediateResult = std::pair<std::string, const Node *>;
+    std::vector<IntermediateResult> next_to_try{{prefix, end_of_prefix}};
+
+    while (!next_to_try.empty()) {
+      auto [possible_word, node_ptr] = next_to_try.back();
+      next_to_try.pop_back();
+      if (node_ptr->is_end_of_word) {
+        output.push_back(possible_word);
+      }
+      for (size_t child_index = 0; child_index < Node::VOCABULARY_LENGTH;
+           ++child_index) {
+        auto child = node_ptr->children[child_index];
+        if (child == nullptr) {
+          continue;
+        }
+        const char next_letter = Node::FIRST_LETTER + char(child_index);
+        next_to_try.push_back({possible_word + next_letter, child});
+      }
+    }
+
+    return output;
   }
 
 private:
   const Node *find_last_node(const std::string &word) const {
     auto current_node_ptr = nodes.front().get();
     for (const auto character : word) {
-      auto child_node_ptr = current_node_ptr->children[character - 'a'];
+      auto child_node_ptr =
+          current_node_ptr->children[character - Node::FIRST_LETTER];
+      if (child_node_ptr == nullptr) {
+        return nullptr;
+      }
+      current_node_ptr = child_node_ptr;
+    }
+    return current_node_ptr;
+  }
+
+  Node *find_last_node(const std::string &word) {
+    auto current_node_ptr = nodes.front().get();
+    for (const auto character : word) {
+      auto child_node_ptr =
+          current_node_ptr->children[character - Node::FIRST_LETTER];
       if (child_node_ptr == nullptr) {
         return nullptr;
       }
