@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 
-echo "==> pre-push: clean build with -Werror and running tests"
+echo "==> pre-push: clean build with check preset and running tests"
 
 rm -rf build-check
-cmake -B build-check -DCMAKE_CXX_FLAGS="-Werror" . 2>&1
+cmake --preset check 2>&1
 if [ $? -ne 0 ]; then
     echo "==> pre-push: CMAKE CONFIGURE FAILED — push blocked"
     exit 1
 fi
 
-cmake --build build-check 2>&1
+cmake --build --preset check 2>&1
 if [ $? -ne 0 ]; then
     echo "==> pre-push: BUILD FAILED (warnings treated as errors) — push blocked"
     exit 1
 fi
 
-ctest --test-dir build-check --output-on-failure 2>&1
+ctest --preset check 2>&1
 if [ $? -ne 0 ]; then
     echo "==> pre-push: TESTS FAILED — push blocked"
     exit 1
