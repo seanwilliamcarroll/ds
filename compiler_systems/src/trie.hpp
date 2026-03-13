@@ -5,14 +5,14 @@
 #include <string>
 #include <vector>
 
-class Trie {
+class ArenaTrie {
   struct Node {
     bool is_end_of_word = false;
     std::array<Node *, 26> children{};
   };
 
 public:
-  Trie() { nodes.push_back(std::make_unique<Node>()); };
+  ArenaTrie() { nodes.push_back(std::make_unique<Node>()); };
 
   void insert(const std::string &word) {
     auto current_node_ptr = nodes.front().get();
@@ -40,6 +40,16 @@ public:
     return find_last_node(prefix) != nullptr;
   }
 
+  bool remove(const std::string &word) {
+    // TODO: Remove word from the trie. Return true if the word was present.
+    return false;
+  }
+
+  std::vector<std::string> getWordsWithPrefix(const std::string &prefix) const {
+    // TODO: Return all stored words that start with prefix.
+    return {};
+  }
+
 private:
   const Node *find_last_node(const std::string &word) const {
     auto current_node_ptr = nodes.front().get();
@@ -54,4 +64,41 @@ private:
   }
 
   std::vector<std::unique_ptr<Node>> nodes;
+};
+
+class PtrTrie {
+  struct Node {
+    bool is_end_of_word = false;
+    std::array<std::unique_ptr<Node>, 26> children{};
+  };
+
+public:
+  PtrTrie() : root(std::make_unique<Node>()) {}
+
+  void insert(const std::string &word) {
+    // TODO
+  }
+
+  bool search(const std::string &word) const {
+    // TODO
+    return false;
+  }
+
+  bool startsWith(const std::string &prefix) const {
+    // TODO
+    return false;
+  }
+
+  bool remove(const std::string &word) {
+    // TODO: Remove word from the trie. Return true if the word was present.
+    return false;
+  }
+
+  std::vector<std::string> getWordsWithPrefix(const std::string &prefix) const {
+    // TODO: Return all stored words that start with prefix.
+    return {};
+  }
+
+private:
+  std::unique_ptr<Node> root;
 };

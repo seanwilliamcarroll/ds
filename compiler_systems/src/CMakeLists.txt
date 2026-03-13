@@ -12,3 +12,6 @@ add_test(NAME redundant_connection COMMAND redundant_connection_test)
 add_executable(trie_test trie_test.cpp)
 target_link_libraries(trie_test GTest::gtest_main)
 add_test(NAME trie COMMAND trie_test)
+
+add_executable(trie_bench trie_bench.cpp)
+target_link_libraries(trie_bench benchmark::benchmark)
