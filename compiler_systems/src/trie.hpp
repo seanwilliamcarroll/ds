@@ -33,6 +33,29 @@ class ArenaTrie {
   };
 
 public:
+  // Opaque handle for incremental trie traversal. Allows walking the trie
+  // one character at a time without exposing Node internals.
+  class Cursor {
+  public:
+    // Advance to the child for the given character.
+    // Returns a new Cursor, or an invalid Cursor if no such child exists.
+    Cursor advance(char c) const;
+
+    // Is this cursor pointing at a complete word?
+    bool is_word() const;
+
+    // Is this cursor valid (i.e. pointing at a real node)?
+    bool is_valid() const;
+
+  private:
+    friend class ArenaTrie;
+    explicit Cursor(const Node *node);
+    const Node *node_;
+  };
+
+  // Get a cursor pointing at the root of the trie.
+  Cursor cursor() const;
+
   ArenaTrie() { nodes.push_back(std::make_unique<Node>()); };
 
   void insert(const std::string &word) {
@@ -152,6 +175,20 @@ class PtrTrie {
   };
 
 public:
+  class Cursor {
+  public:
+    Cursor advance(char c) const;
+    bool is_word() const;
+    bool is_valid() const;
+
+  private:
+    friend class PtrTrie;
+    explicit Cursor(const Node *node);
+    const Node *node_;
+  };
+
+  Cursor cursor() const;
+
   PtrTrie() : root(std::make_unique<Node>()) {}
 
   void insert(const std::string &word) {
