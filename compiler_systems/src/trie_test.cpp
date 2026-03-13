@@ -66,6 +66,12 @@ TEST(TrieTest, EmptyString) {
   EXPECT_TRUE(trie.startsWith(""));
 }
 
+TEST(TrieTest, EmptyPrefixOnEmptyTrie) {
+  // Every trie starts with the empty prefix
+  Trie trie;
+  EXPECT_TRUE(trie.startsWith(""));
+}
+
 TEST(TrieTest, SearchFullWordAsPrefix) {
   // startsWith should return true when the prefix is an exact word
   Trie trie;
