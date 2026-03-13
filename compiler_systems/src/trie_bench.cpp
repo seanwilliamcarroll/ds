@@ -105,30 +105,29 @@ BENCHMARK(BM_SearchHitDense<ArenaTrie>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_SearchMiss<ArenaTrie>)->Range(1 << 8, 1 << 16);
 
 // --- Register PtrTrie benchmarks ---
-// Uncomment once PtrTrie is implemented:
-//
-// BENCHMARK(BM_InsertDense<PtrTrie>)->Range(1 << 8, 1 << 16);
-// BENCHMARK(BM_InsertSparse<PtrTrie>)->Range(1 << 8, 1 << 16);
-// BENCHMARK(BM_SearchHitDense<PtrTrie>)->Range(1 << 8, 1 << 16);
-// BENCHMARK(BM_SearchMiss<PtrTrie>)->Range(1 << 8, 1 << 16);
 
-// --- Expand when getWordsWithPrefix is implemented ---
-//
-// template <typename T>
-// static void BM_GetWordsWithPrefix(benchmark::State &state) {
-//   int n = state.range(0);
-//   auto words = generateDenseWords(n);
-//   T trie;
-//   for (const auto &w : words) {
-//     trie.insert(w);
-//   }
-//
-//   for (auto _ : state) {
-//     benchmark::DoNotOptimize(trie.getWordsWithPrefix("aaa"));
-//   }
-// }
-//
-// BENCHMARK(BM_GetWordsWithPrefix<ArenaTrie>)->Range(1 << 8, 1 << 16);
-// BENCHMARK(BM_GetWordsWithPrefix<PtrTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertDense<PtrTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertSparse<PtrTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchHitDense<PtrTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchMiss<PtrTrie>)->Range(1 << 8, 1 << 16);
+
+// --- getWordsWithPrefix benchmarks ---
+
+template <typename T>
+static void BM_GetWordsWithPrefix(benchmark::State &state) {
+  int n = state.range(0);
+  auto words = generateDenseWords(n);
+  T trie;
+  for (const auto &w : words) {
+    trie.insert(w);
+  }
+
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(trie.getWordsWithPrefix("aaa"));
+  }
+}
+
+BENCHMARK(BM_GetWordsWithPrefix<ArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_GetWordsWithPrefix<PtrTrie>)->Range(1 << 8, 1 << 16);
 
 BENCHMARK_MAIN();
