@@ -15,3 +15,7 @@ add_test(NAME trie COMMAND trie_test)
 
 add_executable(trie_bench trie_bench.cpp)
 target_link_libraries(trie_bench benchmark::benchmark)
+
+add_executable(word_search_test word_search_test.cpp)
+target_link_libraries(word_search_test GTest::gtest_main)
+add_test(NAME word_search COMMAND word_search_test)
