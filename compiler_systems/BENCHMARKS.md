@@ -114,11 +114,64 @@ in a trie of "a"-prefixed words).
 Arena is ~15% faster. This DFS visits many nodes, so cache locality starts to matter. The gap
 would likely widen with larger tries where more cache lines are touched.
 
-### Takeaways
+### Takeaways (Debug)
 
 - **Arena wins on construction** — 3.5x faster inserts due to fewer heap allocations.
 - **Search is equivalent** — single-path traversal doesn't benefit much from layout.
 - **Prefix collection shows a small arena advantage** from cache locality during DFS.
+
+## Trie: Arena vs unique_ptr (Release Build, -O2)
+
+Same benchmarks with `CMAKE_BUILD_TYPE=Release`. Everything gets faster, but the
+relative picture shifts.
+
+### Insert
+
+| Benchmark | 256 | 4K | 64K |
+|-----------|-----|-----|------|
+| Arena Dense | 19us | 236us | 3.1ms |
+| Ptr Dense | 44us | 550us | 12.5ms |
+| Arena Sparse | 21us | 300us | 4.8ms |
+| Ptr Sparse | 50us | 678us | 18.1ms |
+
+Arena is still faster, but the gap has shifted. At 64K dense: 3.1ms vs 12.5ms (~4x). The
+compiler optimizes the arena's vector operations well, widening the gap slightly at large sizes
+compared to the debug build's ~3.5x.
+
+### Search
+
+| Benchmark | 256 | 4K | 64K |
+|-----------|-----|-----|------|
+| Arena Hit | 1.1us | 20us | 1.0ms |
+| Ptr Hit | 1.0us | 20us | 1.0ms |
+| Arena Miss | 83ns | 1.2us | 20us |
+| Ptr Miss | 76ns | 1.1us | 18us |
+
+Still equivalent — PtrTrie is actually marginally faster on misses. The compiler can optimize
+`unique_ptr::get()` to the same code as a raw pointer dereference, so there's no overhead
+in the traversal path. Overall search is ~7x faster than debug, showing how much the
+optimizer helps with the pointer chasing.
+
+### getWordsWithPrefix
+
+| Benchmark | 256 | 4K | 64K |
+|-----------|-----|-----|------|
+| Arena | 73ns | 307ns | 2.1us |
+| Ptr | 73ns | 306ns | 2.1us |
+
+Identical in release. The ~15% arena advantage from the debug build disappears entirely —
+the optimizer eliminates the unique_ptr indirection overhead, making the traversal patterns
+equivalent. Both are ~10x faster than debug.
+
+### Overall Takeaways
+
+- **Arena wins on construction** — ~4x faster inserts due to fewer heap allocations. This
+  holds across debug and release builds because it's a fundamental difference in allocation
+  strategy, not something the optimizer can erase.
+- **Search is equivalent** in both builds. The compiler optimizes `unique_ptr::get()` to a
+  raw pointer dereference, so the traversal cost is identical.
+- **Prefix collection is equivalent in release.** The debug-build advantage for arena was
+  just overhead from unoptimized unique_ptr operations, not true cache locality benefits.
 - Arena's downside: removed nodes can't be freed individually (zombie nodes leak memory).
   PtrTrie can prune dead branches on removal.
 - **Choose arena** for build-once-query-many workloads (dictionaries, autocomplete indices).
