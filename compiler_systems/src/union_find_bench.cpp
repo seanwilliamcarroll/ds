@@ -26,11 +26,11 @@ static void BM_FindAfterAdversarialChain(benchmark::State &state) {
   }
 }
 
-BENCHMARK(BM_FindAfterAdversarialChain<UF_None>)->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_FindAfterAdversarialChain<UF_RankOnly>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_FindAfterAdversarialChain<UF_None>)->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_FindAfterAdversarialChain<UF_RankOnly>)->Range(1 << 10, 1 << 18);
 BENCHMARK(BM_FindAfterAdversarialChain<UF_CompressionOnly>)
-    ->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_FindAfterAdversarialChain<UF_Both>)->Range(1 << 10, 1 << 20);
+    ->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_FindAfterAdversarialChain<UF_Both>)->Range(1 << 10, 1 << 18);
 
 // Repeated finds after chain construction.
 // Shows the effect of path compression on subsequent lookups.
@@ -50,11 +50,11 @@ static void BM_RepeatedFindAfterChain(benchmark::State &state) {
   }
 }
 
-BENCHMARK(BM_RepeatedFindAfterChain<UF_None>)->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_RepeatedFindAfterChain<UF_RankOnly>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RepeatedFindAfterChain<UF_None>)->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_RepeatedFindAfterChain<UF_RankOnly>)->Range(1 << 10, 1 << 18);
 BENCHMARK(BM_RepeatedFindAfterChain<UF_CompressionOnly>)
-    ->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_RepeatedFindAfterChain<UF_Both>)->Range(1 << 10, 1 << 20);
+    ->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_RepeatedFindAfterChain<UF_Both>)->Range(1 << 10, 1 << 18);
 
 // Random unites then random finds — typical workload.
 template <typename UF>
@@ -72,9 +72,9 @@ static void BM_RandomUnitesAndFinds(benchmark::State &state) {
   }
 }
 
-BENCHMARK(BM_RandomUnitesAndFinds<UF_None>)->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_RandomUnitesAndFinds<UF_RankOnly>)->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_RandomUnitesAndFinds<UF_CompressionOnly>)->Range(1 << 10, 1 << 20);
-BENCHMARK(BM_RandomUnitesAndFinds<UF_Both>)->Range(1 << 10, 1 << 20);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_None>)->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_RankOnly>)->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_CompressionOnly>)->Range(1 << 10, 1 << 18);
+BENCHMARK(BM_RandomUnitesAndFinds<UF_Both>)->Range(1 << 10, 1 << 18);
 
 BENCHMARK_MAIN();

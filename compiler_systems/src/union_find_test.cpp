@@ -2,35 +2,48 @@
 
 #include <gtest/gtest.h>
 
-// Tests run against the fully-optimized variant
-using UF = UnionFind<true, true>;
+// Test all four variants:
+// UnionFind<false, false> — no optimizations
+// UnionFind<true, false>  — rank only
+// UnionFind<false, true>  — compression only
+// UnionFind<true, true>   — both
+using UF_None = UnionFind<false, false>;
+using UF_RankOnly = UnionFind<true, false>;
+using UF_CompressionOnly = UnionFind<false, true>;
+using UF_Both = UnionFind<true, true>;
 
-TEST(UnionFindTest, HelloWorld) {
-  UF uf(5);
+template <typename T> class UnionFindTest : public ::testing::Test {};
+
+using UnionFindTypes =
+    ::testing::Types<UF_None, UF_RankOnly, UF_CompressionOnly, UF_Both>;
+TYPED_TEST_SUITE(UnionFindTest, UnionFindTypes);
+
+TYPED_TEST(UnionFindTest, HelloWorld) {
+  TypeParam uf(5);
   // Sanity check: nothing is connected yet
   EXPECT_FALSE(uf.connected(0, 1));
 }
 
-TEST(UnionFindTest, BasicUnion) {
-  UF uf(5);
+TYPED_TEST(UnionFindTest, BasicUnion) {
+  TypeParam uf(5);
   uf.unite(0, 1);
   EXPECT_TRUE(uf.connected(0, 1));
   EXPECT_FALSE(uf.connected(0, 2));
 }
 
-TEST(UnionFindTest, SelfUniteAndConnected) {
-  UF uf(3);
+TYPED_TEST(UnionFindTest, SelfUniteAndConnected) {
+  TypeParam uf(3);
   uf.unite(0, 0);
   EXPECT_TRUE(uf.connected(0, 0));
   EXPECT_TRUE(uf.connected(1, 1));
   EXPECT_FALSE(uf.connected(0, 1));
 }
 
-TEST(UnionFindTest, ChainConnectivity) {
+TYPED_TEST(UnionFindTest, ChainConnectivity) {
   // Build a chain: 0-1-2-3-4
   // All nodes should end up connected, and find should return
   // a consistent root for all of them.
-  UF uf(5);
+  TypeParam uf(5);
   uf.unite(0, 1);
   uf.unite(1, 2);
   uf.unite(2, 3);
@@ -50,9 +63,9 @@ TEST(UnionFindTest, ChainConnectivity) {
   }
 }
 
-TEST(UnionFindTest, MergeTwoGroups) {
+TYPED_TEST(UnionFindTest, MergeTwoGroups) {
   // Build two separate groups, then merge them
-  UF uf(6);
+  TypeParam uf(6);
   uf.unite(0, 1);
   uf.unite(1, 2);
   uf.unite(3, 4);
@@ -73,10 +86,10 @@ TEST(UnionFindTest, MergeTwoGroups) {
   }
 }
 
-TEST(UnionFindTest, ConnectedComponents) {
+TYPED_TEST(UnionFindTest, ConnectedComponents) {
   // n=7, edges: {0,1}, {1,2}, {3,4}, {5,6}
   // Expected: 3 components: {0,1,2}, {3,4}, {5,6}
-  UF uf(7);
+  TypeParam uf(7);
   uf.unite(0, 1);
   uf.unite(1, 2);
   uf.unite(3, 4);
