@@ -8,3 +8,7 @@ target_link_libraries(union_find_bench benchmark::benchmark)
 add_executable(redundant_connection_test redundant_connection_test.cpp)
 target_link_libraries(redundant_connection_test GTest::gtest_main)
 add_test(NAME redundant_connection COMMAND redundant_connection_test)
+
+add_executable(trie_test trie_test.cpp)
+target_link_libraries(trie_test GTest::gtest_main)
+add_test(NAME trie COMMAND trie_test)
