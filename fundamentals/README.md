@@ -1,8 +1,7 @@
-# Interview Staples
+# Fundamentals
 
-These topics come up constantly in systems/compiler company interviews. The goal
-isn't to memorize solutions — it's to recognize problem shapes and apply the right
-pattern quickly under pressure.
+Core topics that come up constantly in practice. The goal isn't to memorize
+solutions — it's to recognize problem shapes and apply the right pattern.
 
 ---
 

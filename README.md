@@ -1,14 +1,13 @@
 # Data Structures & Algorithms
 
-A learning repo organized around interview prep and performance engineering.
-Topics are chosen for depth over breadth — the goal is to understand *why*,
-not just implement.
+A learning repo organized around depth over breadth — the goal is to understand
+*why*, not just implement.
 
 ---
 
-## [Interview Staples](interview_staples/)
+## [Fundamentals](fundamentals/)
 
-These come up constantly and require reps to stay sharp, even with strong fundamentals.
+Core topics that require reps to stay sharp, even with strong foundations.
 
 - **Dynamic programming** — patterns: top-down vs bottom-up, memoization, common subproblems
 - **Graph algorithms** — BFS, DFS, Dijkstra, topological sort
@@ -30,7 +29,7 @@ beats another in practice, not just in asymptotic complexity.
 
 ## [Compiler / Systems-Relevant](compiler_systems/)
 
-Topics that map directly to the roles being targeted.
+Topics that map directly to compiler and systems work.
 
 - **Graphs as compiler IR** — dominance trees, topological sort on CFGs
 - **Tries** — symbol tables, lexers, routing tables

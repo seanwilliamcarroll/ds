@@ -1,8 +1,7 @@
 # Compiler / Systems-Relevant Data Structures
 
 These structures appear directly in compiler infrastructure, OS internals, and
-systems tooling. Understanding them is both interview signal and practical
-knowledge for the roles being targeted.
+systems tooling.
 
 ---
 
@@ -109,9 +108,6 @@ inverse Ackermann function, which is ≤ 4 for any n you'll ever encounter.
   type unification in type inference (Hindley-Milner), equivalence class merging
   during optimizations
 - **Systems:** network connectivity, Kruskal's MST algorithm
-- **Interviews:** number of connected components, redundant connection, accounts
-  merge, number of islands (alternative to DFS)
-
 **What to practice:**
 - Number of connected components in an undirected graph
 - Redundant connection (detect cycle via union-find)
