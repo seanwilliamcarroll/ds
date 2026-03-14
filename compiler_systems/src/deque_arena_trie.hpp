@@ -1,7 +1,7 @@
 #pragma once
 
 #include <array>
-#include <memory>
+#include <deque>
 #include <string>
 #include <utility>
 #include <vector>
@@ -47,15 +47,15 @@ public:
 
   Cursor cursor() const;
 
-  DequeArenaTrie() { nodes.push_back(std::make_unique<Node>()); };
+  DequeArenaTrie() { nodes.push_back({}); };
 
   void insert(const std::string &word) {
-    auto current_node_ptr = nodes.front().get();
+    auto current_node_ptr = &nodes.front();
     for (const auto character : word) {
       auto &child_node_ptr = current_node_ptr->get_child(character);
       if (child_node_ptr == nullptr) {
-        nodes.push_back(std::make_unique<Node>());
-        child_node_ptr = nodes.back().get();
+        nodes.push_back({});
+        child_node_ptr = &nodes.back();
       }
       current_node_ptr = child_node_ptr;
     }
@@ -116,7 +116,7 @@ public:
 
 private:
   const Node *find_last_node(const std::string &word) const {
-    auto current_node_ptr = nodes.front().get();
+    auto current_node_ptr = &nodes.front();
     for (const auto character : word) {
       auto child_node_ptr = current_node_ptr->get_child(character);
       if (child_node_ptr == nullptr) {
@@ -132,5 +132,5 @@ private:
         static_cast<const DequeArenaTrie *>(this)->find_last_node(word));
   }
 
-  std::vector<std::unique_ptr<Node>> nodes;
+  std::deque<Node> nodes;
 };
