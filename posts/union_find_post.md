@@ -157,7 +157,7 @@ The `if constexpr` branches compile away entirely, so each variant has zero over
 
 All numbers are from release builds on Apple Silicon (10-core M-series, 4 MiB L2 per core) using Google Benchmark. I ran debug builds too — the comparison turned out to be part of the story.
 
-Raw benchmark data: [release](../compiler_systems/union_find_bench_release.txt), [debug](../compiler_systems/union_find_bench_debug.txt)
+Raw benchmark data: [release](../reports/union_find_bench_release.txt), [debug](../reports/union_find_bench_debug.txt)
 
 ### Adversarial chain: one find after worst-case construction
 

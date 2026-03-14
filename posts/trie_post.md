@@ -1,5 +1,7 @@
 # Benchmarking Tries: Arena vs unique_ptr
 
+**Update: The "arena" implementation below was not a true arena — it used `vector<unique_ptr<Node>>`, which still scatters nodes across the heap. The insert speedup was real (fewer allocation events), but the cache locality story was wrong. Leaving the post as-is for reference.**
+
 **TL;DR:** Implementing a trie led me into cache effects, `const_cast`, and what the compiler can and can't optimize away.
 
 ---
@@ -37,7 +39,7 @@ Same API, same traversal logic. Both implementations share a `find_last_node` he
 
 The benchmarks test two word distributions: **dense** (words share long prefixes, heavy overlap) and **sparse** (words spread across the alphabet, little sharing).
 
-Raw benchmark data: [release](../compiler_systems/trie_bench_release.txt), [debug](../compiler_systems/trie_bench_debug.txt)
+Raw benchmark data: [release](../reports/trie_bench_release.txt), [debug](../reports/trie_bench_debug.txt)
 
 ---
 

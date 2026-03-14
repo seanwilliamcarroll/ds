@@ -3,3 +3,5 @@ build-check/
 build-release/
 compile_commands.json
 .cache/
+*.csv
+*.html
