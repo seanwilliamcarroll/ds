@@ -1,6 +1,6 @@
 #pragma once
 
-#include "trie.hpp"
+#include "index_arena_trie.hpp"
 #include <cstddef>
 #include <string>
 #include <unordered_set>
@@ -58,7 +58,7 @@ findWords(std::vector<std::vector<char>> &board,
 
   std::unordered_set<std::string> found_words;
 
-  ArenaTrie trie;
+  IndexArenaTrie trie;
   for (const auto &word : words) {
     trie.insert(word);
   }

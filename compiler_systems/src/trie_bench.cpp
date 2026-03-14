@@ -1,4 +1,6 @@
-#include "trie.hpp"
+#include "deque_arena_trie.hpp"
+#include "index_arena_trie.hpp"
+#include "ptr_trie.hpp"
 
 #include <benchmark/benchmark.h>
 #include <string>
@@ -97,12 +99,19 @@ template <typename T> static void BM_SearchMiss(benchmark::State &state) {
   }
 }
 
-// --- Register Arena benchmarks ---
+// --- Register IndexArenaTrie benchmarks ---
 
-BENCHMARK(BM_InsertDense<ArenaTrie>)->Range(1 << 8, 1 << 16);
-BENCHMARK(BM_InsertSparse<ArenaTrie>)->Range(1 << 8, 1 << 16);
-BENCHMARK(BM_SearchHitDense<ArenaTrie>)->Range(1 << 8, 1 << 16);
-BENCHMARK(BM_SearchMiss<ArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertDense<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertSparse<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchHitDense<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchMiss<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+
+// --- Register DequeArenaTrie benchmarks ---
+
+BENCHMARK(BM_InsertDense<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertSparse<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchHitDense<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchMiss<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
 
 // --- Register PtrTrie benchmarks ---
 
@@ -127,7 +136,8 @@ static void BM_GetWordsWithPrefix(benchmark::State &state) {
   }
 }
 
-BENCHMARK(BM_GetWordsWithPrefix<ArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_GetWordsWithPrefix<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_GetWordsWithPrefix<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_GetWordsWithPrefix<PtrTrie>)->Range(1 << 8, 1 << 16);
 
 BENCHMARK_MAIN();

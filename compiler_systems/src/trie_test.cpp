@@ -1,11 +1,13 @@
-#include "trie.hpp"
+#include "deque_arena_trie.hpp"
+#include "index_arena_trie.hpp"
+#include "ptr_trie.hpp"
 
 #include <algorithm>
 #include <gtest/gtest.h>
 
 template <typename T> class TrieTest : public ::testing::Test {};
 
-using TrieTypes = ::testing::Types<ArenaTrie, PtrTrie>;
+using TrieTypes = ::testing::Types<IndexArenaTrie, DequeArenaTrie, PtrTrie>;
 TYPED_TEST_SUITE(TrieTest, TrieTypes);
 
 TYPED_TEST(TrieTest, SearchEmptyTrie) {
