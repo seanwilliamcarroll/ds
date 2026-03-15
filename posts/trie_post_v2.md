@@ -36,14 +36,14 @@ Raw benchmark data: [release](../reports/trie_bench_release.csv), [debug](../rep
 
 | Benchmark | 256 | 4K | 64K |
 |-----------|-----|-----|------|
-| Index Dense (sentinel) | 16μs | 152μs | 3.4ms |
+| Index Dense (sentinel) | 16μs | 154μs | 3.5ms |
 | Deque Dense | 12μs | 151μs | 1.8ms |
-| Ptr Dense | 44μs | 546μs | 11.5ms |
-| Index Sparse (sentinel) | 17μs | 236μs | 3.9ms |
+| Ptr Dense | 44μs | 544μs | 11.5ms |
+| Index Sparse (sentinel) | 18μs | 232μs | 3.9ms |
 | Deque Sparse | 13μs | 190μs | 2.8ms |
-| Ptr Sparse | 50μs | 682μs | 19.3ms |
+| Ptr Sparse | 50μs | 672μs | 19.4ms |
 
-Both arenas beat PtrTrie convincingly — IndexArena by ~3.4x, DequeArena by ~6.3x at 64K dense. The surprise is that DequeArena is the fastest inserter, nearly twice as fast as IndexArena at 64K.
+Both arenas beat PtrTrie convincingly — IndexArena by ~3.3x, DequeArena by ~6.4x at 64K dense. The surprise is that DequeArena is the fastest inserter, nearly twice as fast as IndexArena at 64K.
 
 Why? IndexArena's `vector<Node>` occasionally reallocates and copies the entire array when it grows. Each Node is 216 bytes[^1] so at 64K nodes that's ~13.5MB being copied on resize. DequeArena's `deque` never moves existing nodes — it just allocates a new chunk and updates its internal bookkeeping. The reallocation cost outweighs the locality benefit during construction.
 
@@ -57,11 +57,11 @@ This is a tradeoff the old post missed entirely, because the old "arena" wasn't 
 
 | Benchmark | 256 | 4K | 64K |
 |-----------|-----|-----|------|
-| Index Hit (sentinel) | 910ns | 24μs | 566μs |
-| Deque Hit | 1.2μs | 21μs | 923μs |
-| Ptr Hit | 1.1μs | 20μs | 998μs |
+| Index Hit (sentinel) | 912ns | 23μs | 580μs |
+| Deque Hit | 1.2μs | 21μs | 930μs |
+| Ptr Hit | 1.1μs | 18μs | 878μs |
 
-This is the result the old post was looking for but couldn't find. At 64K words, IndexArena searches are 1.8x faster than PtrTrie. The old post reported identical search times — because both implementations scattered nodes on the heap, there was no locality difference to measure.
+This is the result the old post was looking for but couldn't find. At 64K words, IndexArena searches are 1.5x faster than PtrTrie. The old post reported identical search times — because both implementations scattered nodes on the heap, there was no locality difference to measure.
 
 Now there is. IndexArena's nodes are contiguous in a `vector<Node>`. When searching for a word, you follow a path of ~6 nodes. In PtrTrie, those 6 nodes could be anywhere in a ~13.5MB heap region. In IndexArena, they're within a contiguous ~13.5MB block — the CPU's hardware prefetcher can anticipate sequential access, and nodes created close in time (which often means structurally close in the trie) end up physically close in memory.
 
@@ -100,9 +100,9 @@ At mid-range sizes where everything fits in cache, this per-iteration overhead d
 
 | Benchmark | 256 | 4K | 64K |
 |-----------|-----|-----|------|
-| Index Miss (sentinel) | 128ns | 1.9μs | 31μs |
-| Deque Miss | 111ns | 1.7μs | 27μs |
-| Ptr Miss | 76ns | 1.1μs | 17μs |
+| Index Miss (sentinel) | 127ns | 2.0μs | 32μs |
+| Deque Miss | 108ns | 1.7μs | 26μs |
+| Ptr Miss | 77ns | 1.1μs | 17μs |
 
 Misses tell a different story: PtrTrie is fastest. This makes sense — a miss on "zzzzzzz" in a trie of "a"-prefixed words fails at the root node, one array lookup and done. The benchmark repeats this n times on the same hot node. No traversal means no cache effects.
 
@@ -126,15 +126,15 @@ Search hits and inserts showed no meaningful difference — the `madd` multiply 
 
 | Size | Sentinel | Zero-null | Speedup |
 |------|----------|-----------|---------|
-| 256 | 128ns | 70ns | 1.82x |
-| 512 | 248ns | 134ns | 1.85x |
-| 4K | 1.95μs | 1.03μs | 1.90x |
-| 32K | 15.5μs | 7.9μs | 1.95x |
-| 64K | 31.4μs | 16.7μs | 1.88x |
+| 256 | 127ns | 70ns | 1.81x |
+| 512 | 249ns | 138ns | 1.80x |
+| 4K | 1.97μs | 1.01μs | 1.95x |
+| 32K | 15.6μs | 8.0μs | 1.94x |
+| 64K | 31.6μs | 16.0μs | 1.98x |
 
 A consistent ~1.9x speedup — much larger than a single instruction should account for. But it makes sense: the miss benchmark searches for "zzzzzzz" in a trie of "a"-prefixed words. The lookup fails at the root node on the very first child access. The entire hot path is: load one child index, compare to null, repeat. The null comparison *is* the bottleneck, so `cbz` vs `cmn` + `b.eq` is the difference between one and two instructions on the critical path.
 
-In debug builds the effect vanishes (sentinel 1.80ms vs zero-null 1.83ms at 64K) — unoptimized function call overhead masks the instruction-level difference, same pattern we saw with search hits.
+In debug builds the effect vanishes (sentinel 1.77ms vs zero-null 1.80ms at 64K) — unoptimized function call overhead masks the instruction-level difference, same pattern we saw with search hits.
 
 For any real workload where misses traverse more than one node, this difference would be negligible. But it's a nice confirmation that the disassembly predictions hold up.
 
@@ -179,9 +179,9 @@ Also faster — smaller nodes mean less data to copy on vector reallocation.
 
 | Benchmark | 256 | 4K | 64K |
 |-----------|-----|-----|------|
-| Index (sentinel) | 75ns | 316ns | 2.2μs |
-| Deque | 74ns | 314ns | 2.1μs |
-| Ptr | 73ns | 309ns | 2.1μs |
+| Index (sentinel) | 75ns | 325ns | 2.2μs |
+| Deque | 74ns | 319ns | 2.1μs |
+| Ptr | 74ns | 314ns | 2.1μs |
 
 `getWordsWithPrefix("aaa")` collects terminal nodes from a small subtree. The subtree is small enough that it fits in cache regardless of the overall trie's memory layout. No difference.
 
@@ -191,11 +191,13 @@ Also faster — smaller nodes mean less data to copy on vector reallocation.
 
 The debug results reveal what the optimizer is and isn't responsible for.
 
-**Insert** ratios hold steady across debug and release: both arenas are ~3-4x faster than PtrTrie in both builds. The allocation strategy dominates — the optimizer can't change where memory comes from.
+**Insert** ratios hold steady across debug and release: IndexArena is ~3x faster and DequeArena ~4-6x faster than PtrTrie in both builds. The allocation strategy dominates — the optimizer can't change where memory comes from.
 
-**Search hits** tell a subtler story. In debug at 64K, DequeArena (4.3ms) is fastest, followed by IndexArena (5.5ms), then PtrTrie (6.7ms). In release, IndexArena (566μs) leaps to first place while DequeArena (923μs) and PtrTrie (998μs) are closer together. The optimizer doesn't create cache locality — but it does strip away enough abstraction overhead to let cache effects become the dominant factor. In debug, the unoptimized function call overhead masks the memory layout signal.
+**Search hits** tell a subtler story. In debug at 64K, DequeArena (4.3ms) is fastest, followed by IndexArena (5.5ms), then PtrTrie (6.5ms). In release, IndexArena (580μs) leaps to first place while PtrTrie (878μs) and DequeArena (930μs) are closer together. The optimizer doesn't create cache locality — but it does strip away enough abstraction overhead to let cache effects become the dominant factor. In debug, the unoptimized function call overhead masks the memory layout signal.
 
-**Search misses and prefix collection** show uniform ~10x debug-to-release slowdown across all three implementations, same as in the old post. These operations access so few nodes that memory layout doesn't matter.
+**Prefix collection** shows a uniform ~13x debug-to-release slowdown across all implementations. These operations access so few nodes that memory layout doesn't matter.
+
+**Search misses** show much larger ratios (~55x+) because the per-miss cost in release is so small (sub-nanosecond per iteration) that even modest debug overhead produces outsized ratios.
 
 ---
 
@@ -206,7 +208,7 @@ The old post's conclusion was: "the optimizer is excellent at removing abstracti
 With a real arena, the picture is more nuanced:
 
 - **Insert:** Arenas still win on allocation cost. But the *fastest* inserter is DequeArena, not the fully contiguous IndexArena — because avoiding vector reallocation matters more than node contiguity during construction.
-- **Search:** Cache locality is measurable, but only at scale. At 64K nodes, contiguous memory gives IndexArena a 1.8x search advantage. At 256 nodes, everything fits in cache and layout doesn't matter. The sentinel vs zero-null experiment confirmed that disassembly predictions translate to measurable effects — when a single instruction is the hot path. And separating hot fields from cold fields (data-oriented layout) pushed the search advantage to 2.2x over PtrTrie — just by removing 8 bytes of padding per node.
+- **Search:** Cache locality is measurable, but only at scale. At 64K nodes, contiguous memory gives IndexArena a 1.5x search advantage. At 256 nodes, everything fits in cache and layout doesn't matter. The sentinel vs zero-null experiment confirmed that disassembly predictions translate to measurable effects — when a single instruction is the hot path. And separating hot fields from cold fields (data-oriented layout) pushed the search advantage to 2.2x over PtrTrie — just by removing 8 bytes of padding per node.
 - **The tradeoff is three-way now:** IndexArena (especially the data-oriented variant) for query-heavy workloads where you can pay the insert cost, DequeArena for balanced insert/query workloads, PtrTrie when you need per-node memory reclamation.
 
 The lesson I keep learning: measure before concluding. The old post had the right instinct about cache effects but the wrong evidence. It took building an actual arena to see whether the theory held up. It did — just not in the way I originally described.
