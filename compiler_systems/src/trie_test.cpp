@@ -5,9 +5,13 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 
+using IndexArenaSentinel = IndexArenaTrie<true>;
+using IndexArenaZeroNull = IndexArenaTrie<false>;
+
 template <typename T> class TrieTest : public ::testing::Test {};
 
-using TrieTypes = ::testing::Types<IndexArenaTrie, DequeArenaTrie, PtrTrie>;
+using TrieTypes = ::testing::Types<IndexArenaSentinel, IndexArenaZeroNull,
+                                   DequeArenaTrie, PtrTrie>;
 TYPED_TEST_SUITE(TrieTest, TrieTypes);
 
 TYPED_TEST(TrieTest, SearchEmptyTrie) {

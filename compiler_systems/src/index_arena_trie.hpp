@@ -7,11 +7,12 @@
 #include <utility>
 #include <vector>
 
-class IndexArenaTrie {
+template <bool UseSentinelValue = true> class IndexArenaTrie {
   struct Node {
     static constexpr size_t VOCABULARY_LENGTH = 26;
     static constexpr char FIRST_LETTER = 'a';
-    static constexpr size_t NULL_INDEX = std::numeric_limits<size_t>::max();
+    static constexpr size_t NULL_INDEX =
+        UseSentinelValue ? std::numeric_limits<size_t>::max() : 0ULL;
     bool is_end_of_word = false;
     std::array<size_t, VOCABULARY_LENGTH> children;
 
@@ -34,7 +35,7 @@ class IndexArenaTrie {
     }
   };
 
-  static constexpr size_t ROOT_NODE_INDEX = 0ULL;
+  static constexpr size_t ROOT_NODE_INDEX = UseSentinelValue ? 0ULL : 1ULL;
 
 public:
   // Opaque handle for incremental trie traversal. Allows walking the trie
@@ -60,7 +61,13 @@ public:
   // Get a cursor pointing at the root of the trie.
   Cursor cursor() const;
 
-  IndexArenaTrie() { nodes.push_back(Node()); };
+  IndexArenaTrie() {
+    nodes.push_back(Node());
+    if constexpr (!UseSentinelValue) {
+      // The true root node
+      nodes.push_back(Node());
+    }
+  };
 
   void insert(const std::string &word) {
     auto current_node_index = ROOT_NODE_INDEX;

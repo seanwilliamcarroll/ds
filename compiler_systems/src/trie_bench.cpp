@@ -41,6 +41,9 @@ static std::vector<std::string> generateSparseWords(int64_t count) {
   return words;
 }
 
+using IndexArenaSentinel = IndexArenaTrie<true>;
+using IndexArenaZeroNull = IndexArenaTrie<false>;
+
 // --- Insert benchmarks ---
 
 template <typename T> static void BM_InsertDense(benchmark::State &state) {
@@ -99,12 +102,19 @@ template <typename T> static void BM_SearchMiss(benchmark::State &state) {
   }
 }
 
-// --- Register IndexArenaTrie benchmarks ---
+// --- Register IndexArenaTrie (sentinel) benchmarks ---
 
-BENCHMARK(BM_InsertDense<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
-BENCHMARK(BM_InsertSparse<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
-BENCHMARK(BM_SearchHitDense<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
-BENCHMARK(BM_SearchMiss<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertDense<IndexArenaSentinel>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertSparse<IndexArenaSentinel>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchHitDense<IndexArenaSentinel>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchMiss<IndexArenaSentinel>)->Range(1 << 8, 1 << 16);
+
+// --- Register IndexArenaTrie (zero-as-null) benchmarks ---
+
+BENCHMARK(BM_InsertDense<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertSparse<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchHitDense<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchMiss<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
 
 // --- Register DequeArenaTrie benchmarks ---
 
@@ -136,7 +146,8 @@ static void BM_GetWordsWithPrefix(benchmark::State &state) {
   }
 }
 
-BENCHMARK(BM_GetWordsWithPrefix<IndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_GetWordsWithPrefix<IndexArenaSentinel>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_GetWordsWithPrefix<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_GetWordsWithPrefix<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_GetWordsWithPrefix<PtrTrie>)->Range(1 << 8, 1 << 16);
 
