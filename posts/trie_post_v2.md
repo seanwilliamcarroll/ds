@@ -138,6 +138,39 @@ In debug builds the effect vanishes (sentinel 1.80ms vs zero-null 1.83ms at 64K)
 
 For any real workload where misses traverse more than one node, this difference would be negligible. But it's a nice confirmation that the disassembly predictions hold up.
 
+### Data-oriented layout: separating hot and cold fields
+
+All the implementations so far store `is_end_of_word` inside the Node struct. But think about what happens during a search traversal: you visit ~6 nodes, and at each one you only look at the `children` array to find the next index. You never check `is_end_of_word` until the very last node. That bool — plus its 7 bytes of alignment padding — is dead weight in every cache line you pull in along the way.
+
+I'd seen talks at CppCon about data-oriented design — the idea that you should organize data by how it's *accessed*, not by what it logically *belongs to*. I hadn't tried it myself, but this seemed like a clean case to test. The change is simple: pull `is_end_of_word` out of Node and into a parallel `vector<bool>`, indexed the same way. Node shrinks from 216 bytes to 208 bytes (just the children array, no padding).
+
+Comparing against IndexArenaZeroNull (same null strategy, same traversal logic — the only difference is where the bool lives):
+
+**Search hits (release):**
+
+| Size | IndexArena | DataOriented | Speedup |
+|------|-----------|-------------|---------|
+| 256 | 904ns | 984ns | 0.92x |
+| 4K | 24.9μs | 23.4μs | 1.07x |
+| 32K | 204μs | 190μs | 1.07x |
+| 64K | 582μs | 397μs | **1.47x** |
+
+A 1.47x improvement at 64K from removing 8 bytes per node. The total memory savings is modest — 13.0MB vs 13.5MB for the children arrays — but every cache line pulled in during traversal is now 100% useful data. No padding, no cold bools.
+
+The same size-dependent pattern holds: no difference at 256 (fits in cache regardless), growing advantage as the working set exceeds cache.
+
+**Insert (release, dense):**
+
+| Size | IndexArena | DataOriented | Speedup |
+|------|-----------|-------------|---------|
+| 64K | 3.51ms | 3.02ms | 1.16x |
+
+Also faster — smaller nodes mean less data to copy on vector reallocation.
+
+**Search misses and prefix collection:** Identical, as expected.
+
+**Debug flips the result:** DataOriented is *slower* in debug — 6.14ms vs 5.63ms for search hits, 19.0ms vs 14.3ms for inserts at 64K. The extra `vector<bool>` bookkeeping (separate indexing, an additional `push_back` per insert) adds overhead that the optimizer eliminates in release. In debug, that abstraction cost outweighs the cache benefit. Same pattern as every other result in this post: the optimizer doesn't create cache locality, but it strips away enough noise to let cache effects dominate.
+
 ---
 
 ## Prefix collection: still identical
@@ -173,8 +206,8 @@ The old post's conclusion was: "the optimizer is excellent at removing abstracti
 With a real arena, the picture is more nuanced:
 
 - **Insert:** Arenas still win on allocation cost. But the *fastest* inserter is DequeArena, not the fully contiguous IndexArena — because avoiding vector reallocation matters more than node contiguity during construction.
-- **Search:** Cache locality is measurable, but only at scale. At 64K nodes, contiguous memory gives IndexArena a 1.8x search advantage. At 256 nodes, everything fits in cache and layout doesn't matter. And the sentinel vs zero-null experiment confirmed that disassembly predictions translate to measurable effects — when a single instruction is the hot path.
-- **The tradeoff is three-way now:** IndexArena for query-heavy workloads where you can pay the insert cost, DequeArena for balanced insert/query workloads, PtrTrie when you need per-node memory reclamation.
+- **Search:** Cache locality is measurable, but only at scale. At 64K nodes, contiguous memory gives IndexArena a 1.8x search advantage. At 256 nodes, everything fits in cache and layout doesn't matter. The sentinel vs zero-null experiment confirmed that disassembly predictions translate to measurable effects — when a single instruction is the hot path. And separating hot fields from cold fields (data-oriented layout) pushed the search advantage to 2.2x over PtrTrie — just by removing 8 bytes of padding per node.
+- **The tradeoff is three-way now:** IndexArena (especially the data-oriented variant) for query-heavy workloads where you can pay the insert cost, DequeArena for balanced insert/query workloads, PtrTrie when you need per-node memory reclamation.
 
 The lesson I keep learning: measure before concluding. The old post had the right instinct about cache effects but the wrong evidence. It took building an actual arena to see whether the theory held up. It did — just not in the way I originally described.
 
