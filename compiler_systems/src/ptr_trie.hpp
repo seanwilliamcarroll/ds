@@ -35,17 +35,29 @@ class PtrTrie {
 public:
   class Cursor {
   public:
-    Cursor advance(char c) const;
-    bool is_word() const;
-    bool is_valid() const;
+    Cursor advance(char c) const {
+      if (!is_valid()) {
+        return Cursor(nullptr);
+      }
+      return Cursor(node_->get_child(c).get());
+    }
+
+    bool is_word() const {
+      if (!is_valid()) {
+        return false;
+      }
+      return node_->is_end_of_word;
+    }
+
+    bool is_valid() const { return node_ != nullptr; }
 
   private:
     friend class PtrTrie;
-    explicit Cursor(const Node *node);
+    explicit Cursor(const Node *node) : node_(node) {}
     const Node *node_;
   };
 
-  Cursor cursor() const;
+  Cursor cursor() const { return Cursor(root.get()); }
 
   PtrTrie() : root(std::make_unique<Node>()) {}
 

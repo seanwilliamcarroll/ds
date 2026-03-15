@@ -1,5 +1,10 @@
 #include "word_search.hpp"
 
+#include "data_oriented_index_arena_trie.hpp"
+#include "deque_arena_trie.hpp"
+#include "index_arena_trie.hpp"
+#include "ptr_trie.hpp"
+
 #include <algorithm>
 #include <gtest/gtest.h>
 
@@ -9,30 +14,41 @@ static std::vector<std::string> sorted(std::vector<std::string> v) {
   return v;
 }
 
-TEST(WordSearchTest, LeetCodeExample) {
+using IndexArenaSentinel = IndexArenaTrie<true>;
+using IndexArenaZeroNull = IndexArenaTrie<false>;
+
+template <typename T> class WordSearchTest : public ::testing::Test {};
+
+using TrieTypes =
+    ::testing::Types<IndexArenaSentinel, IndexArenaZeroNull,
+                     DataOrientedIndexArenaTrie, DequeArenaTrie, PtrTrie>;
+TYPED_TEST_SUITE(WordSearchTest, TrieTypes);
+
+TYPED_TEST(WordSearchTest, LeetCodeExample) {
   // The classic example from the problem description
   std::vector<std::vector<char>> board = {{'o', 'a', 'a', 'n'},
                                           {'e', 't', 'a', 'e'},
                                           {'i', 'h', 'k', 'r'},
                                           {'i', 'f', 'l', 'v'}};
   std::vector<std::string> words = {"oath", "pea", "eat", "rain"};
-  EXPECT_EQ(sorted(findWords(board, words)), sorted({"eat", "oath"}));
+  EXPECT_EQ(sorted(findWords<TypeParam>(board, words)),
+            sorted({"eat", "oath"}));
 }
 
-TEST(WordSearchTest, SingleCell) {
+TYPED_TEST(WordSearchTest, SingleCell) {
   // Board is 1x1 — word must be a single character
   std::vector<std::vector<char>> board = {{'a'}};
   std::vector<std::string> words = {"a", "ab"};
-  EXPECT_EQ(findWords(board, words), std::vector<std::string>{"a"});
+  EXPECT_EQ(findWords<TypeParam>(board, words), std::vector<std::string>{"a"});
 }
 
-TEST(WordSearchTest, NoMatches) {
+TYPED_TEST(WordSearchTest, NoMatches) {
   std::vector<std::vector<char>> board = {{'a', 'b'}, {'c', 'd'}};
   std::vector<std::string> words = {"xyz", "qqq"};
-  EXPECT_EQ(findWords(board, words), std::vector<std::string>{});
+  EXPECT_EQ(findWords<TypeParam>(board, words), std::vector<std::string>{});
 }
 
-TEST(WordSearchTest, AllWordsFound) {
+TYPED_TEST(WordSearchTest, AllWordsFound) {
   // Every target word is present on the board
   // Board:  a b
   //         c d
@@ -40,36 +56,38 @@ TEST(WordSearchTest, AllWordsFound) {
   // Note: a-d and b-c are diagonal — NOT adjacent
   std::vector<std::vector<char>> board = {{'a', 'b'}, {'c', 'd'}};
   std::vector<std::string> words = {"ab", "abd", "abdc", "cabd"};
-  EXPECT_EQ(sorted(findWords(board, words)),
+  EXPECT_EQ(sorted(findWords<TypeParam>(board, words)),
             sorted({"ab", "abd", "abdc", "cabd"}));
 }
 
-TEST(WordSearchTest, DuplicateWordsInInput) {
+TYPED_TEST(WordSearchTest, DuplicateWordsInInput) {
   // Same word appears twice in the input list — should only appear once in
   // output
   std::vector<std::vector<char>> board = {{'a', 'b'}, {'c', 'd'}};
   std::vector<std::string> words = {"ab", "ab"};
-  EXPECT_EQ(findWords(board, words), std::vector<std::string>{"ab"});
+  EXPECT_EQ(findWords<TypeParam>(board, words), std::vector<std::string>{"ab"});
 }
 
-TEST(WordSearchTest, WordRequiresBacktracking) {
+TYPED_TEST(WordSearchTest, WordRequiresBacktracking) {
   // "aab": a(0,0)->a(0,1)->b(1,1), right then down. Valid.
   // "aba": a->b->a requires returning to a cell not yet used, but
   //   every a->b pair leaves no unused 'a' adjacent to that b. Invalid.
   std::vector<std::vector<char>> board = {{'a', 'a'}, {'b', 'b'}};
   std::vector<std::string> words = {"aab", "aba"};
-  EXPECT_EQ(findWords(board, words), std::vector<std::string>{"aab"});
+  EXPECT_EQ(findWords<TypeParam>(board, words),
+            std::vector<std::string>{"aab"});
 }
 
-TEST(WordSearchTest, SharedPrefix) {
+TYPED_TEST(WordSearchTest, SharedPrefix) {
   // "the" and "them" share a prefix — the trie should find both
   // in a single traversal from 't'
   std::vector<std::vector<char>> board = {{'t', 'h', 'e', 'm'}};
   std::vector<std::string> words = {"the", "them", "then"};
-  EXPECT_EQ(sorted(findWords(board, words)), sorted({"the", "them"}));
+  EXPECT_EQ(sorted(findWords<TypeParam>(board, words)),
+            sorted({"the", "them"}));
 }
 
-TEST(WordSearchTest, LargerBoard) {
+TYPED_TEST(WordSearchTest, LargerBoard) {
   std::vector<std::vector<char>> board = {{'o', 'a', 'b', 'n'},
                                           {'o', 't', 'a', 'e'},
                                           {'a', 'h', 'k', 'r'},
@@ -81,18 +99,19 @@ TEST(WordSearchTest, LargerBoard) {
   // oaths: no 's' on the board. Invalid.
   // eat: e(1,3)->a(1,2)->t(1,1), left, left. Valid.
   // eta: e(1,3)->t(1,1)? Not adjacent (2 cols apart). Invalid.
-  EXPECT_EQ(sorted(findWords(board, words)),
+  EXPECT_EQ(sorted(findWords<TypeParam>(board, words)),
             sorted({"oa", "oat", "oath", "eat"}));
 }
 
-TEST(WordSearchTest, SingleRowSnake) {
+TYPED_TEST(WordSearchTest, SingleRowSnake) {
   // Entire board is one row — adjacency is only left/right
   std::vector<std::vector<char>> board = {{'c', 'a', 't', 's'}};
   std::vector<std::string> words = {"cat", "cats", "tac", "sat"};
-  EXPECT_EQ(sorted(findWords(board, words)), sorted({"cat", "cats", "tac"}));
+  EXPECT_EQ(sorted(findWords<TypeParam>(board, words)),
+            sorted({"cat", "cats", "tac"}));
 }
 
-TEST(WordSearchTest, MaxSizeBoard) {
+TYPED_TEST(WordSearchTest, MaxSizeBoard) {
   // 12x12 board — maximum dimensions per constraints
   // clang-format off
   std::vector<std::vector<char>> board = {
@@ -128,14 +147,14 @@ TEST(WordSearchTest, MaxSizeBoard) {
   // Valid.
   std::vector<std::string> words = {"abcdef", "mnoy",   "mno",
                                     "zan",    "zyxwvu", "nmlkji"};
-  EXPECT_EQ(sorted(findWords(board, words)),
+  EXPECT_EQ(sorted(findWords<TypeParam>(board, words)),
             sorted({"abcdef", "mno", "zyxwvu", "nmlkji"}));
 }
 
-TEST(WordSearchTest, NoCellReuse) {
+TYPED_TEST(WordSearchTest, NoCellReuse) {
   // "aba" requires going a->b->a, but the board only has one 'a'
   // adjacent to 'b' — can't reuse the same 'a' cell
   std::vector<std::vector<char>> board = {{'a', 'b', 'c'}};
   std::vector<std::string> words = {"aba"};
-  EXPECT_EQ(findWords(board, words), std::vector<std::string>{});
+  EXPECT_EQ(findWords<TypeParam>(board, words), std::vector<std::string>{});
 }

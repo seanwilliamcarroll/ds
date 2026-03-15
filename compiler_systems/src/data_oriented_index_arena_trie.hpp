@@ -40,24 +40,34 @@ public:
   // one character at a time without exposing Node internals.
   class Cursor {
   public:
-    // Advance to the child for the given character.
-    // Returns a new Cursor, or an invalid Cursor if no such child exists.
-    Cursor advance(char c) const;
+    Cursor advance(char c) const {
+      if (!is_valid()) {
+        return Cursor(parent_trie, Node::NULL_INDEX);
+      }
+      auto child_index = parent_trie.nodes[node_index].get_child_index(c);
+      return Cursor(parent_trie, child_index);
+    }
 
-    // Is this cursor pointing at a complete word?
-    bool is_word() const;
+    bool is_word() const {
+      if (!is_valid()) {
+        return false;
+      }
+      return parent_trie.end_of_word[node_index];
+    }
 
-    // Is this cursor valid (i.e. pointing at a real node)?
-    bool is_valid() const;
+    bool is_valid() const { return node_index != Node::NULL_INDEX; }
 
   private:
     friend class DataOrientedIndexArenaTrie;
-    explicit Cursor(const Node *node);
-    const Node *node_;
+    explicit Cursor(const DataOrientedIndexArenaTrie &parent_trie,
+                    size_t node_index)
+        : parent_trie(parent_trie), node_index(node_index) {}
+    const DataOrientedIndexArenaTrie &parent_trie;
+    const size_t node_index;
   };
 
   // Get a cursor pointing at the root of the trie.
-  Cursor cursor() const;
+  Cursor cursor() const { return Cursor(*this, ROOT_NODE_INDEX); }
 
   DataOrientedIndexArenaTrie() {
     nodes.push_back(Node());

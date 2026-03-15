@@ -35,17 +35,30 @@ class DequeArenaTrie {
 public:
   class Cursor {
   public:
-    Cursor advance(char c) const;
-    bool is_word() const;
-    bool is_valid() const;
+    Cursor advance(char c) const {
+      if (!is_valid()) {
+        return Cursor(nullptr);
+      }
+      auto child = node_->get_child(c);
+      return Cursor(child);
+    }
+
+    bool is_word() const {
+      if (!is_valid()) {
+        return false;
+      }
+      return node_->is_end_of_word;
+    }
+
+    bool is_valid() const { return node_ != nullptr; }
 
   private:
     friend class DequeArenaTrie;
-    explicit Cursor(const Node *node);
+    explicit Cursor(const Node *node) : node_(node) {}
     const Node *node_;
   };
 
-  Cursor cursor() const;
+  Cursor cursor() const { return Cursor(&nodes.front()); }
 
   DequeArenaTrie() { nodes.push_back({}); };
 

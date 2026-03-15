@@ -1,6 +1,5 @@
 #pragma once
 
-#include "index_arena_trie.hpp"
 #include <bitset>
 #include <cstddef>
 #include <string>
@@ -47,6 +46,7 @@
 constexpr size_t MAX_ROWS = 12;
 constexpr size_t MAX_COLS = 12;
 
+template <typename TrieType>
 inline std::vector<std::string>
 findWords(std::vector<std::vector<char>> &board,
           const std::vector<std::string> &words) {
@@ -62,22 +62,23 @@ findWords(std::vector<std::vector<char>> &board,
 
   std::unordered_set<std::string> found_words;
 
-  IndexArenaTrie<false> trie;
+  TrieType trie;
   for (const auto &word : words) {
     trie.insert(word);
   }
 
   using Position = std::pair<size_t, size_t>;
+  using CursorType = typename TrieType::Cursor;
 
   // Want to do DFS across the board
   struct IntermediateResult {
     Position last_position;
     std::string prefix;
-    IndexArenaTrie<false>::Cursor cursor;
+    CursorType cursor;
     std::bitset<MAX_ROWS * MAX_COLS> seen_positions;
 
     IntermediateResult(size_t num_cols, size_t row_index, size_t col_index,
-                       std::string prefix, IndexArenaTrie<false>::Cursor cursor,
+                       std::string prefix, CursorType cursor,
                        std::bitset<MAX_ROWS * MAX_COLS> seen_positions)
         : last_position{row_index, col_index}, prefix(std::move(prefix)),
           cursor(std::move(cursor)), seen_positions(seen_positions) {
