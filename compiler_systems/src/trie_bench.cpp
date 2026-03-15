@@ -1,3 +1,4 @@
+#include "data_oriented_index_arena_trie.hpp"
 #include "deque_arena_trie.hpp"
 #include "index_arena_trie.hpp"
 #include "ptr_trie.hpp"
@@ -116,6 +117,14 @@ BENCHMARK(BM_InsertSparse<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_SearchHitDense<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_SearchMiss<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
 
+// --- Register DataOrientedIndexArenaTrie benchmarks ---
+
+BENCHMARK(BM_InsertDense<DataOrientedIndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_InsertSparse<DataOrientedIndexArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchHitDense<DataOrientedIndexArenaTrie>)
+    ->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_SearchMiss<DataOrientedIndexArenaTrie>)->Range(1 << 8, 1 << 16);
+
 // --- Register DequeArenaTrie benchmarks ---
 
 BENCHMARK(BM_InsertDense<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
@@ -149,6 +158,8 @@ static void BM_GetWordsWithPrefix(benchmark::State &state) {
 BENCHMARK(BM_GetWordsWithPrefix<IndexArenaSentinel>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_GetWordsWithPrefix<IndexArenaZeroNull>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_GetWordsWithPrefix<DequeArenaTrie>)->Range(1 << 8, 1 << 16);
+BENCHMARK(BM_GetWordsWithPrefix<DataOrientedIndexArenaTrie>)
+    ->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_GetWordsWithPrefix<PtrTrie>)->Range(1 << 8, 1 << 16);
 
 BENCHMARK_MAIN();
