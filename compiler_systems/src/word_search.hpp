@@ -1,6 +1,7 @@
 #pragma once
 
 #include "index_arena_trie.hpp"
+#include <bitset>
 #include <cstddef>
 #include <string>
 #include <unordered_set>
@@ -43,6 +44,9 @@
 //   "pea" — no 'p' on the board.
 //   "rain" — r(2,3)->a(1,2)->i(?)-> no 'i' adjacent to 'a' at (1,2).
 
+static const size_t MAX_ROWS = 12;
+static const size_t MAX_COLS = 12;
+
 inline std::vector<std::string>
 findWords(std::vector<std::vector<char>> &board,
           const std::vector<std::string> &words) {
@@ -58,63 +62,59 @@ findWords(std::vector<std::vector<char>> &board,
 
   std::unordered_set<std::string> found_words;
 
-  IndexArenaTrie trie;
+  IndexArenaTrie<false> trie;
   for (const auto &word : words) {
     trie.insert(word);
   }
 
   using Position = std::pair<size_t, size_t>;
 
-  const std::vector<std::vector<bool>> initial_seen_positions(
-      board.size(), std::vector<bool>(board.front().size(), false));
-
   // Want to do DFS across the board
   struct IntermediateResult {
     Position last_position;
     std::string prefix;
-    std::vector<std::vector<bool>> seen_positions;
+    IndexArenaTrie<false>::Cursor cursor;
+    std::bitset<MAX_ROWS * MAX_COLS> seen_positions;
 
-    IntermediateResult(size_t row_index, size_t col_index, std::string prefix,
-                       std::vector<std::vector<bool>> seen_positions)
+    IntermediateResult(size_t num_cols, size_t row_index, size_t col_index,
+                       std::string prefix, IndexArenaTrie<false>::Cursor cursor,
+                       std::bitset<MAX_ROWS * MAX_COLS> seen_positions)
         : last_position{row_index, col_index}, prefix(std::move(prefix)),
-          seen_positions(std::move(seen_positions)) {
-      saw(row_index, col_index);
+          cursor(std::move(cursor)), seen_positions(seen_positions) {
+      this->seen_positions[num_cols * row_index + col_index] = true;
     }
 
-    void saw(size_t row_index, size_t col_index) {
-      seen_positions[row_index][col_index] = true;
-    }
-
-    bool seen(size_t row_index, size_t col_index) const {
-      return seen_positions[row_index][col_index];
-    }
-
-    std::vector<Position> get_possible_next_positions() const {
+    std::vector<Position> get_possible_next_positions(size_t num_rows,
+                                                      size_t num_cols) const {
       std::vector<Position> output;
 
       auto [row_index, col_index] = last_position;
 
-      if (row_index > 0 && !seen(row_index - 1, col_index)) {
+      auto was_seen = [num_cols, this](size_t row, size_t col) {
+        return seen_positions[row * num_cols + col];
+      };
+
+      if (row_index > 0 && !was_seen(row_index - 1, col_index)) {
         output.push_back({row_index - 1, col_index});
       }
 
-      if (col_index > 0 && !seen(row_index, col_index - 1)) {
+      if (col_index > 0 && !was_seen(row_index, col_index - 1)) {
         output.push_back({row_index, col_index - 1});
       }
 
-      if (row_index < seen_positions.size() - 1 &&
-          !seen(row_index + 1, col_index)) {
+      if (row_index < num_rows - 1 && !was_seen(row_index + 1, col_index)) {
         output.push_back({row_index + 1, col_index});
       }
 
-      if (col_index < seen_positions.back().size() - 1 &&
-          !seen(row_index, col_index + 1)) {
+      if (col_index < num_cols - 1 && !was_seen(row_index, col_index + 1)) {
         output.push_back({row_index, col_index + 1});
       }
 
       return output;
     }
   };
+
+  std::bitset<MAX_ROWS * MAX_COLS> initial_seen_positions;
 
   std::vector<IntermediateResult> attempts;
   {
@@ -123,13 +123,16 @@ findWords(std::vector<std::vector<char>> &board,
       size_t col_index = 0;
       for (const auto character : row) {
         std::string first_letter{character};
-        if (trie.search(first_letter)) {
+        auto root_cursor = trie.cursor();
+        auto cursor = root_cursor.advance(character);
+        if (cursor.is_word()) {
           found_words.insert(first_letter);
         }
-        if (trie.startsWith(first_letter)) {
-          attempts.push_back(IntermediateResult(row_index, col_index,
-                                                std::move(first_letter),
-                                                initial_seen_positions));
+        if (cursor.is_valid()) {
+          attempts.push_back(
+              IntermediateResult(board.back().size(), row_index, col_index,
+                                 std::move(first_letter), std::move(cursor),
+                                 initial_seen_positions));
         }
         ++col_index;
       }
@@ -139,20 +142,27 @@ findWords(std::vector<std::vector<char>> &board,
   // DFS queue initialized
 
   while (!attempts.empty()) {
+    // Pop next attempt off the stack
     auto next_attempt = std::move(attempts.back());
     attempts.pop_back();
+
+    // Check possible next positions
     for (const auto &[row_index, col_index] :
-         next_attempt.get_possible_next_positions()) {
-      std::string new_prefix =
-          next_attempt.prefix + board[row_index][col_index];
-      if (trie.search(new_prefix)) {
+         next_attempt.get_possible_next_positions(board.size(),
+                                                  board.back().size())) {
+      // Try to advance cursor
+      auto new_cursor =
+          next_attempt.cursor.advance(board[row_index][col_index]);
+      if (!new_cursor.is_valid()) {
+        continue;
+      }
+      auto new_prefix = next_attempt.prefix + board[row_index][col_index];
+      if (new_cursor.is_word()) {
         found_words.insert(new_prefix);
       }
-      if (trie.startsWith(new_prefix)) {
-        attempts.push_back(IntermediateResult(row_index, col_index,
-                                              std::move(new_prefix),
-                                              next_attempt.seen_positions));
-      }
+      attempts.push_back(IntermediateResult(
+          board.back().size(), row_index, col_index, std::move(new_prefix),
+          std::move(new_cursor), next_attempt.seen_positions));
     }
   }
 
