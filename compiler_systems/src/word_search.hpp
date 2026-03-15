@@ -44,8 +44,8 @@
 //   "pea" — no 'p' on the board.
 //   "rain" — r(2,3)->a(1,2)->i(?)-> no 'i' adjacent to 'a' at (1,2).
 
-static const size_t MAX_ROWS = 12;
-static const size_t MAX_COLS = 12;
+constexpr size_t MAX_ROWS = 12;
+constexpr size_t MAX_COLS = 12;
 
 inline std::vector<std::string>
 findWords(std::vector<std::vector<char>> &board,
