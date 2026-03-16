@@ -62,11 +62,14 @@ course scheduling, island counting).
 - **Cycle detection** — DFS with a "in-stack" visited set (directed); union-find or DFS coloring (undirected)
 - **Connected components / SCC** — union-find for undirected; Tarjan's or Kosaraju's for SCCs in directed graphs
 
-**What to practice:**
-- Number of islands (DFS/BFS on implicit graph)
-- Course schedule I & II (topological sort + cycle detection)
-- Shortest path in a weighted graph (Dijkstra's)
-- Clone graph
+**Practice plan — build up graph intuition and representations:**
+
+| # | Concept | Problem | Why | Status |
+|---|---------|---------|-----|--------|
+| 1 | BFS/DFS on implicit graph | Number of Islands | Grid as graph — no class needed, focus on traversal | |
+| 2 | Adjacency list, deep copy | Clone Graph | Forces you to build and traverse a neighbor-list representation | |
+| 3 | Topological sort, cycle detection | Course Schedule I & II | Directed graph, in-degree tracking, Kahn's algorithm | |
+| 4 | Weighted shortest path | Dijkstra's (Network Delay Time) | Priority queue, edge weights, single-source shortest path | |
 
 ---
 
