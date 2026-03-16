@@ -67,6 +67,7 @@ inline Node *cloneGraph(Node *node) {
   while (!nodes_to_try.empty()) {
     auto *node_ptr = nodes_to_try.back();
     nodes_to_try.pop_back();
+    auto *new_node_ptr = new_nodes[node_ptr->val];
     for (auto *neighbor_ptr : node_ptr->neighbors) {
       auto iter = new_nodes.find(neighbor_ptr->val);
       Node *new_neighbor_ptr;
@@ -78,7 +79,7 @@ inline Node *cloneGraph(Node *node) {
       } else {
         new_neighbor_ptr = iter->second;
       }
-      new_nodes[node_ptr->val]->neighbors.push_back(new_neighbor_ptr);
+      new_node_ptr->neighbors.push_back(new_neighbor_ptr);
     }
   }
 
