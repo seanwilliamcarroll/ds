@@ -52,7 +52,7 @@ public:
   bool connected(int x, int y) { return find(x) == find(y); }
 
 private:
-  const int &get_parent(int index) const {
+  [[nodiscard]] const int &get_parent(int index) const {
     return parent[static_cast<size_t>(index)];
   }
 
@@ -62,7 +62,7 @@ private:
             ->get_parent(index));
   }
 
-  const int &get_rank(int index) const {
+  [[nodiscard]] const int &get_rank(int index) const {
     return rank[static_cast<size_t>(index)];
   }
 

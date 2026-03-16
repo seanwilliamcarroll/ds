@@ -12,7 +12,7 @@ class DataOrientedIndexArenaTrie {
     static constexpr char FIRST_LETTER = 'a';
     static constexpr size_t NULL_INDEX = 0ULL;
     // bool is_end_of_word = false;
-    std::array<size_t, VOCABULARY_LENGTH> children;
+    std::array<size_t, VOCABULARY_LENGTH> children{};
 
     Node() {
       for (auto &child : children) {
@@ -24,11 +24,11 @@ class DataOrientedIndexArenaTrie {
       children[static_cast<size_t>(character - FIRST_LETTER)] = child_index;
     }
 
-    size_t get_child_index(char character) const {
+    [[nodiscard]] size_t get_child_index(char character) const {
       return children[static_cast<size_t>(character - FIRST_LETTER)];
     }
 
-    size_t get_child_index_by_index(size_t index) const {
+    [[nodiscard]] size_t get_child_index_by_index(size_t index) const {
       return children[index];
     }
   };
@@ -40,7 +40,7 @@ public:
   // one character at a time without exposing Node internals.
   class Cursor {
   public:
-    Cursor advance(char c) const {
+    [[nodiscard]] Cursor advance(char c) const {
       if (!is_valid()) {
         return Cursor(parent_trie, Node::NULL_INDEX);
       }
@@ -48,14 +48,16 @@ public:
       return Cursor(parent_trie, child_index);
     }
 
-    bool is_word() const {
+    [[nodiscard]] bool is_word() const {
       if (!is_valid()) {
         return false;
       }
       return parent_trie.end_of_word[node_index];
     }
 
-    bool is_valid() const { return node_index != Node::NULL_INDEX; }
+    [[nodiscard]] bool is_valid() const {
+      return node_index != Node::NULL_INDEX;
+    }
 
   private:
     friend class DataOrientedIndexArenaTrie;
@@ -67,13 +69,13 @@ public:
   };
 
   // Get a cursor pointing at the root of the trie.
-  Cursor cursor() const { return Cursor(*this, ROOT_NODE_INDEX); }
+  [[nodiscard]] Cursor cursor() const { return Cursor(*this, ROOT_NODE_INDEX); }
 
   DataOrientedIndexArenaTrie() {
-    nodes.push_back(Node());
+    nodes.emplace_back();
     end_of_word.push_back(false);
     // The true root node
-    nodes.push_back(Node());
+    nodes.emplace_back();
     end_of_word.push_back(false);
   };
 
@@ -85,7 +87,7 @@ public:
       if (child_node_index == Node::NULL_INDEX) {
         child_node_index = nodes.size();
         nodes[current_node_index].set_child_index(character, nodes.size());
-        nodes.push_back(Node());
+        nodes.emplace_back();
         end_of_word.push_back(false);
       }
       current_node_index = child_node_index;
@@ -93,7 +95,7 @@ public:
     end_of_word[current_node_index] = true;
   }
 
-  bool search(const std::string &word) const {
+  [[nodiscard]] bool search(const std::string &word) const {
     auto final_node_index = find_last_node_index(word);
     if (final_node_index == Node::NULL_INDEX) {
       return false;
@@ -102,7 +104,7 @@ public:
     return end_of_word[final_node_index];
   }
 
-  bool startsWith(const std::string &prefix) const {
+  [[nodiscard]] bool startsWith(const std::string &prefix) const {
     return find_last_node_index(prefix) != Node::NULL_INDEX;
   }
 
@@ -116,7 +118,8 @@ public:
     return was_present;
   }
 
-  std::vector<std::string> getWordsWithPrefix(const std::string &prefix) const {
+  [[nodiscard]] std::vector<std::string>
+  getWordsWithPrefix(const std::string &prefix) const {
     auto end_of_prefix_index = find_last_node_index(prefix);
     if (end_of_prefix_index == Node::NULL_INDEX) {
       return {};
@@ -139,8 +142,9 @@ public:
         if (child_index == Node::NULL_INDEX) {
           continue;
         }
-        const char next_letter = Node::FIRST_LETTER + char(character_index);
-        next_to_try.push_back({possible_word + next_letter, child_index});
+        const char next_letter = static_cast<char>(
+            Node::FIRST_LETTER + static_cast<char>(character_index));
+        next_to_try.emplace_back(possible_word + next_letter, child_index);
       }
     }
 
@@ -148,7 +152,7 @@ public:
   }
 
 private:
-  size_t find_last_node_index(const std::string &word) const {
+  [[nodiscard]] size_t find_last_node_index(const std::string &word) const {
     auto current_node_index = ROOT_NODE_INDEX;
     for (const auto character : word) {
       auto child_node_index =

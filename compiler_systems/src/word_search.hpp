@@ -82,33 +82,33 @@ findWords(std::vector<std::vector<char>> &board,
                        std::bitset<MAX_ROWS * MAX_COLS> seen_positions)
         : last_position{row_index, col_index}, prefix(std::move(prefix)),
           cursor(std::move(cursor)), seen_positions(seen_positions) {
-      this->seen_positions[num_cols * row_index + col_index] = true;
+      this->seen_positions[(num_cols * row_index) + col_index] = true;
     }
 
-    std::vector<Position> get_possible_next_positions(size_t num_rows,
-                                                      size_t num_cols) const {
+    [[nodiscard]] std::vector<Position>
+    get_possible_next_positions(size_t num_rows, size_t num_cols) const {
       std::vector<Position> output;
 
       auto [row_index, col_index] = last_position;
 
       auto was_seen = [num_cols, this](size_t row, size_t col) {
-        return seen_positions[row * num_cols + col];
+        return seen_positions[(row * num_cols) + col];
       };
 
       if (row_index > 0 && !was_seen(row_index - 1, col_index)) {
-        output.push_back({row_index - 1, col_index});
+        output.emplace_back(row_index - 1, col_index);
       }
 
       if (col_index > 0 && !was_seen(row_index, col_index - 1)) {
-        output.push_back({row_index, col_index - 1});
+        output.emplace_back(row_index, col_index - 1);
       }
 
       if (row_index < num_rows - 1 && !was_seen(row_index + 1, col_index)) {
-        output.push_back({row_index + 1, col_index});
+        output.emplace_back(row_index + 1, col_index);
       }
 
       if (col_index < num_cols - 1 && !was_seen(row_index, col_index + 1)) {
-        output.push_back({row_index, col_index + 1});
+        output.emplace_back(row_index, col_index + 1);
       }
 
       return output;
@@ -167,5 +167,5 @@ findWords(std::vector<std::vector<char>> &board,
     }
   }
 
-  return std::vector<std::string>(found_words.begin(), found_words.end());
+  return {found_words.begin(), found_words.end()};
 }

@@ -14,7 +14,7 @@ template <bool UseSentinelValue = true> class IndexArenaTrie {
     static constexpr size_t NULL_INDEX =
         UseSentinelValue ? std::numeric_limits<size_t>::max() : 0ULL;
     bool is_end_of_word = false;
-    std::array<size_t, VOCABULARY_LENGTH> children;
+    std::array<size_t, VOCABULARY_LENGTH> children{};
 
     Node() {
       for (auto &child : children) {
@@ -26,11 +26,11 @@ template <bool UseSentinelValue = true> class IndexArenaTrie {
       children[static_cast<size_t>(character - FIRST_LETTER)] = child_index;
     }
 
-    size_t get_child_index(char character) const {
+    [[nodiscard]] size_t get_child_index(char character) const {
       return children[static_cast<size_t>(character - FIRST_LETTER)];
     }
 
-    size_t get_child_index_by_index(size_t index) const {
+    [[nodiscard]] size_t get_child_index_by_index(size_t index) const {
       return children[index];
     }
   };
@@ -53,7 +53,7 @@ public:
     }
 
     // Is this cursor pointing at a complete word?
-    bool is_word() const {
+    [[nodiscard]] bool is_word() const {
       if (!is_valid()) {
         return false;
       }
@@ -61,7 +61,9 @@ public:
     }
 
     // Is this cursor valid (i.e. pointing at a real node)?
-    bool is_valid() const { return node_index != Node::NULL_INDEX; }
+    [[nodiscard]] bool is_valid() const {
+      return node_index != Node::NULL_INDEX;
+    }
 
   private:
     friend class IndexArenaTrie;
@@ -100,7 +102,7 @@ public:
     nodes[current_node_index].is_end_of_word = true;
   }
 
-  bool search(const std::string &word) const {
+  [[nodiscard]] bool search(const std::string &word) const {
     auto final_node_index = find_last_node_index(word);
     if (final_node_index == Node::NULL_INDEX) {
       return false;
@@ -109,7 +111,7 @@ public:
     return nodes[final_node_index].is_end_of_word;
   }
 
-  bool startsWith(const std::string &prefix) const {
+  [[nodiscard]] bool startsWith(const std::string &prefix) const {
     return find_last_node_index(prefix) != Node::NULL_INDEX;
   }
 
@@ -123,7 +125,8 @@ public:
     return was_present;
   }
 
-  std::vector<std::string> getWordsWithPrefix(const std::string &prefix) const {
+  [[nodiscard]] std::vector<std::string>
+  getWordsWithPrefix(const std::string &prefix) const {
     auto end_of_prefix_index = find_last_node_index(prefix);
     if (end_of_prefix_index == Node::NULL_INDEX) {
       return {};
@@ -155,7 +158,7 @@ public:
   }
 
 private:
-  size_t find_last_node_index(const std::string &word) const {
+  [[nodiscard]] size_t find_last_node_index(const std::string &word) const {
     auto current_node_index = ROOT_NODE_INDEX;
     for (const auto character : word) {
       auto child_node_index =
