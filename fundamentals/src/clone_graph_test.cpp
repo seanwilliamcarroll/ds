@@ -20,7 +20,8 @@ static Node *buildGraph(const std::vector<std::vector<int>> &adjList) {
   }
   for (size_t i = 0; i < adjList.size(); ++i) {
     for (int neighbor_val : adjList[i]) {
-      nodes[i]->neighbors.push_back(nodes[neighbor_val - 1]);
+      nodes[i]->neighbors.push_back(
+          nodes[static_cast<size_t>(neighbor_val - 1)]);
     }
   }
   return nodes[0];
