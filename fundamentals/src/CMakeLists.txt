@@ -9,3 +9,7 @@ add_test(NAME house_robber COMMAND house_robber_test)
 add_executable(min_path_sum_test min_path_sum_test.cpp)
 target_link_libraries(min_path_sum_test GTest::gtest_main)
 add_test(NAME min_path_sum COMMAND min_path_sum_test)
+
+add_executable(number_of_islands_test number_of_islands_test.cpp)
+target_link_libraries(number_of_islands_test GTest::gtest_main)
+add_test(NAME number_of_islands COMMAND number_of_islands_test)
