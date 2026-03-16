@@ -26,12 +26,20 @@ can explain memoization but freeze on a novel problem.
 - Knapsack: pick items subject to a capacity constraint (0/1 knapsack, coin change)
 - Bitmask DP: subset enumeration over small state spaces (TSP, assignment problems)
 
-**What to practice:**
-- Coin change (canonical bottom-up 1D)
-- Longest common subsequence (canonical 2D two-sequence)
-- 0/1 knapsack
-- Longest increasing subsequence (also has an O(n log n) patience sort variant)
-- Edit distance
+**Practice plan — pattern-based progression:**
+
+For each problem: identify the state, write the recurrence, find base cases,
+implement bottom-up, then optimize space if possible.
+
+| # | Pattern | Problem | Why |
+|---|---------|---------|-----|
+| 1 | 1D | Coin Change | Clean unbounded knapsack recurrence, not just "look back 1-2 steps" |
+| 2 | 1D | House Robber | "Take or skip" decision pattern |
+| 3 | 2D grid | Unique Paths / Min Path Sum | Introduces 2D state naturally |
+| 4 | Two sequences | Longest Common Subsequence | Canonical "two string" DP |
+| 5 | Two sequences | Edit Distance | Adds operations to LCS pattern |
+| 6 | Knapsack | 0/1 Knapsack | Template for a huge family of problems |
+| 7 | Interval | Longest Palindromic Substring | Gentler intro to interval DP |
 
 ---
 
