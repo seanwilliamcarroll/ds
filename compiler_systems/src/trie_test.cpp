@@ -59,7 +59,7 @@ TYPED_TEST(TrieTest, StartsWithNonExisting) {
   TypeParam trie;
   trie.insert("apple");
   EXPECT_FALSE(trie.startsWith("b"));
-  EXPECT_FALSE(trie.startsWith("ap0"));
+  EXPECT_FALSE(trie.startsWith("apc"));
 }
 
 TYPED_TEST(TrieTest, MultipleWordsDisjointPrefixes) {
