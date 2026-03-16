@@ -65,5 +65,5 @@ inline int rob(const std::vector<int> &nums) {
     two_houses_back = original_one_house_back;
   }
 
-  return std::max(two_houses_back, one_house_back);
+  return one_house_back;
 }
