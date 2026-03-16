@@ -59,33 +59,26 @@ inline Node *cloneGraph(Node *node) {
   }
 
   // Need to walk this graph and keep track of the neighbors found
-  std::unordered_map<Node *, std::vector<Node *>> node_to_neighbors;
   std::vector<Node *> nodes_to_try{node};
   std::unordered_map<int, Node *> new_nodes;
 
   // Add the entry to signify we've visited this node before
-  node_to_neighbors[node] = {};
   new_nodes[node->val] = new Node(node->val);
   while (!nodes_to_try.empty()) {
     auto *node_ptr = nodes_to_try.back();
     nodes_to_try.pop_back();
     for (auto *neighbor_ptr : node_ptr->neighbors) {
-      node_to_neighbors[node_ptr].push_back(neighbor_ptr);
-      auto iter = node_to_neighbors.find(neighbor_ptr);
-      if (iter != node_to_neighbors.end()) {
-        continue;
+      auto iter = new_nodes.find(neighbor_ptr->val);
+      Node *new_neighbor_ptr;
+      if (iter == new_nodes.end()) {
+        // Haven't seen this node before
+        nodes_to_try.push_back(neighbor_ptr);
+        new_neighbor_ptr = new Node(neighbor_ptr->val);
+        new_nodes[neighbor_ptr->val] = new_neighbor_ptr;
+      } else {
+        new_neighbor_ptr = iter->second;
       }
-      // Haven't seen this node before
-      node_to_neighbors[neighbor_ptr] = {};
-      nodes_to_try.push_back(neighbor_ptr);
-      new_nodes[neighbor_ptr->val] = new Node(neighbor_ptr->val);
-    }
-  }
-
-  for (const auto &[node_ptr, neighbors] : node_to_neighbors) {
-    for (auto *neighbor_ptr : neighbors) {
-      new_nodes[node_ptr->val]->neighbors.push_back(
-          new_nodes.at(neighbor_ptr->val));
+      new_nodes[node_ptr->val]->neighbors.push_back(new_neighbor_ptr);
     }
   }
 
