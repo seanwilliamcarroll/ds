@@ -13,3 +13,7 @@ add_test(NAME min_path_sum COMMAND min_path_sum_test)
 add_executable(number_of_islands_test number_of_islands_test.cpp)
 target_link_libraries(number_of_islands_test GTest::gtest_main)
 add_test(NAME number_of_islands COMMAND number_of_islands_test)
+
+add_executable(clone_graph_test clone_graph_test.cpp)
+target_link_libraries(clone_graph_test GTest::gtest_main)
+add_test(NAME clone_graph COMMAND clone_graph_test)
