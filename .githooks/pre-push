@@ -46,5 +46,18 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+echo "==> pre-push: running clang-tidy"
+SOURCE_FILES=$(find . -path './build*' -prune -o \( -name '*.hpp' -o -name '*.cpp' \) -print \
+    | grep -v '_test\.cpp$' | grep -v '_bench\.cpp$')
+
+if [ -n "$SOURCE_FILES" ]; then
+    echo "$SOURCE_FILES" | xargs clang-tidy -p build-check --warnings-as-errors='*' 2>&1
+    if [ $? -ne 0 ]; then
+        echo "==> pre-push: CLANG-TIDY WARNINGS — push blocked"
+        cleanup
+        exit 1
+    fi
+fi
+
 cleanup
 echo "==> pre-push: all checks passed"
