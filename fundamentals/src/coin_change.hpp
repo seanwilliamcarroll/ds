@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 // Coin Change (LeetCode 322)
@@ -40,4 +41,36 @@
 //   Time:  O(amount * coins.size())
 //   Space: O(amount)
 
-int coinChange(const std::vector<int> &coins, int amount);
+inline int coinChange(const std::vector<int> &coins, int amount) {
+  const auto amount_index = static_cast<size_t>(amount);
+  std::vector<int> coins_needed(amount_index + 1, amount + 1);
+  coins_needed[0] = 0;
+
+  for (size_t index = 0; index <= amount_index; ++index) {
+    const auto current_amount = static_cast<int>(index);
+    for (const auto coin : coins) {
+      if (coin > current_amount) {
+        // coin too big to try
+        continue;
+      }
+      // Can try this coin
+      const auto coin_as_index = static_cast<size_t>(coin);
+      const auto last_number_coins = coins_needed[index - coin_as_index];
+      if (last_number_coins == -1) {
+        // Can't make this value with this coin
+        continue;
+      }
+      // First time finding this coin?
+      // or
+      // Did we find a way with fewer coins?
+      coins_needed[index] =
+          std::min(last_number_coins + 1, coins_needed[index]);
+    }
+  }
+
+  if (coins_needed[amount_index] > amount) {
+    return -1;
+  }
+
+  return coins_needed[amount_index];
+}
