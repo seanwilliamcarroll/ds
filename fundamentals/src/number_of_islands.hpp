@@ -60,21 +60,25 @@ inline int numIslands(std::vector<std::vector<char>> &grid) {
                                         const size_t possible_col_index) {
         if (possible_row_index > 0 &&
             grid[possible_row_index - 1][possible_col_index] == LAND) {
+          grid[possible_row_index - 1][possible_col_index] = WATER;
           possible_land_tiles.emplace_back(possible_row_index - 1,
                                            possible_col_index);
         }
         if (possible_col_index > 0 &&
             grid[possible_row_index][possible_col_index - 1] == LAND) {
+          grid[possible_row_index][possible_col_index - 1] = WATER;
           possible_land_tiles.emplace_back(possible_row_index,
                                            possible_col_index - 1);
         }
         if (possible_row_index < grid.size() - 1 &&
             grid[possible_row_index + 1][possible_col_index] == LAND) {
+          grid[possible_row_index + 1][possible_col_index] = WATER;
           possible_land_tiles.emplace_back(possible_row_index + 1,
                                            possible_col_index);
         }
         if (possible_col_index < grid[possible_row_index].size() - 1 &&
             grid[possible_row_index][possible_col_index + 1] == LAND) {
+          grid[possible_row_index][possible_col_index + 1] = WATER;
           possible_land_tiles.emplace_back(possible_row_index,
                                            possible_col_index + 1);
         }
@@ -87,10 +91,6 @@ inline int numIslands(std::vector<std::vector<char>> &grid) {
             possible_land_tiles.back();
         possible_land_tiles.pop_back();
 
-        if (grid[island_row_index][island_col_index] != LAND) {
-          continue;
-        }
-        grid[island_row_index][island_col_index] = WATER;
         add_possible_tiles(island_row_index, island_col_index);
       }
     }
