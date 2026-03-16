@@ -45,23 +45,25 @@
 //   Space: O(1) with the two-variable optimization, O(n) with full table
 
 inline int rob(const std::vector<int> &nums) {
-  std::vector<int> max_money_robable(nums.size(), 0);
+  // std::vector<int> max_money_robable(nums.size(), 0);
 
-  max_money_robable[0] = nums[0];
+  auto two_houses_back = nums[0];
   if (nums.size() == 1) {
-    return max_money_robable.back();
+    return two_houses_back;
   }
-  max_money_robable[1] = std::max(nums[0], nums[1]);
+  auto one_house_back = std::max(nums[0], nums[1]);
   if (nums.size() == 2) {
-    return max_money_robable.back();
+    return one_house_back;
   }
 
   for (size_t house_index = 2; house_index < nums.size(); ++house_index) {
     auto current_house_value = nums[house_index];
-    max_money_robable[house_index] =
-        std::max(current_house_value + max_money_robable[house_index - 2],
-                 max_money_robable[house_index - 1]);
+    auto original_one_house_back = one_house_back;
+
+    one_house_back =
+        std::max(one_house_back, two_houses_back + current_house_value);
+    two_houses_back = original_one_house_back;
   }
 
-  return max_money_robable.back();
+  return std::max(two_houses_back, one_house_back);
 }
