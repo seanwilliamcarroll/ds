@@ -58,6 +58,12 @@ TEST(CourseSchedule, CanFinish_DisconnectedNoCycle) {
   EXPECT_TRUE(canFinish(4, prereqs));
 }
 
+TEST(CourseSchedule, CanFinish_ConvergingPaths) {
+  // Two paths both leading to node 1: 0->1, 0->2->1 (no cycle)
+  std::vector<std::vector<int>> prereqs = {{0, 1}, {0, 2}, {2, 1}};
+  EXPECT_TRUE(canFinish(3, prereqs));
+}
+
 // ── findOrder ────────────────────────────────────────────────────────────────
 
 // Verify that the returned order is a valid topological sort:
