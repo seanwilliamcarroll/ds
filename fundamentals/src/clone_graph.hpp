@@ -63,19 +63,22 @@ inline Node *cloneGraph(Node *node) {
   std::unordered_map<int, Node *> new_nodes;
 
   // Add the entry to signify we've visited this node before
-  new_nodes[node->val] = new Node(node->val);
+  new_nodes[node->val] =
+      new Node(node->val); // NOLINT(cppcoreguidelines-owning-memory)
   while (!nodes_to_try.empty()) {
     auto *node_ptr = nodes_to_try.back();
     nodes_to_try.pop_back();
     auto *new_node_ptr = new_nodes[node_ptr->val];
     for (auto *neighbor_ptr : node_ptr->neighbors) {
       auto iter = new_nodes.find(neighbor_ptr->val);
-      Node *new_neighbor_ptr;
+      Node *new_neighbor_ptr = nullptr;
       if (iter == new_nodes.end()) {
         // Haven't seen this node before
         nodes_to_try.push_back(neighbor_ptr);
-        new_neighbor_ptr = new Node(neighbor_ptr->val);
-        new_nodes[neighbor_ptr->val] = new_neighbor_ptr;
+        new_neighbor_ptr = new Node(
+            neighbor_ptr->val); // NOLINT(cppcoreguidelines-owning-memory)
+        new_nodes[neighbor_ptr->val] =
+            new_neighbor_ptr; // NOLINT(cppcoreguidelines-owning-memory)
       } else {
         new_neighbor_ptr = iter->second;
       }
