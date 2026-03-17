@@ -17,3 +17,7 @@ add_test(NAME number_of_islands COMMAND number_of_islands_test)
 add_executable(clone_graph_test clone_graph_test.cpp)
 target_link_libraries(clone_graph_test GTest::gtest_main)
 add_test(NAME clone_graph COMMAND clone_graph_test)
+
+add_executable(course_schedule_test course_schedule_test.cpp)
+target_link_libraries(course_schedule_test GTest::gtest_main)
+add_test(NAME course_schedule COMMAND course_schedule_test)
