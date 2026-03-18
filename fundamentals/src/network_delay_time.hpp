@@ -43,25 +43,6 @@
 //   - 0 <= w_i <= 100
 //   - All the pairs (u_i, v_i) are unique
 
-namespace {
-struct Edge {
-  int source;
-  int dest;
-
-  auto operator<=>(const Edge &) const = default;
-};
-} // namespace
-
-namespace std {
-template <> struct hash<Edge> {
-  size_t operator()(const Edge &edge) const {
-    // n guarenteed to be under 256, combine this way
-    const int combined = (edge.source << 8) | edge.dest;
-    return std::hash<int>()(combined);
-  }
-};
-} // namespace std
-
 // SPFA (Shortest Path Faster Algorithm): BFS with re-enqueue on improvement.
 // Correct but may visit nodes multiple times. O(V * E) worst case.
 inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
@@ -74,15 +55,13 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
   // BFS the nodes, keeping the minimum it takes to reach node x from y,
   // starting from k
 
-  std::unordered_map<int, std::vector<int>> node_to_neighbors;
-  std::unordered_map<Edge, int> weights;
+  std::unordered_map<int, std::vector<std::pair<int, int>>> node_to_neighbors;
 
   for (const auto &edge_time : times) {
     const auto source_node = edge_time[0];
     const auto dest_node = edge_time[1];
     const auto weight = edge_time[2];
-    node_to_neighbors[source_node].push_back(dest_node);
-    weights[{source_node, dest_node}] = weight;
+    node_to_neighbors[source_node].push_back({dest_node, weight});
   }
 
   std::vector<int> minimum_time_from_k(static_cast<size_t>(n),
@@ -92,30 +71,27 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
 
   struct SearchState {
     int next_node;
-    int prev_node;
-    int prev_node_time;
+    int cost_to_reach;
   };
 
   std::deque<SearchState> neighbor_queue;
 
-  for (const auto neighbor : node_to_neighbors[k]) {
-    neighbor_queue.push_back(
-        {.next_node = neighbor, .prev_node = k, .prev_node_time = 0});
+  for (const auto &[neighbor, weight] : node_to_neighbors[k]) {
+    neighbor_queue.push_back({.next_node = neighbor, .cost_to_reach = weight});
   }
 
   while (!neighbor_queue.empty()) {
     const auto state = neighbor_queue.front();
     neighbor_queue.pop_front();
     const auto next_node_index = static_cast<size_t>(state.next_node - 1);
-    const auto new_possible_time =
-        state.prev_node_time + weights.at({state.prev_node, state.next_node});
-    if (minimum_time_from_k[next_node_index] > new_possible_time) {
-      minimum_time_from_k[next_node_index] = new_possible_time;
+    if (minimum_time_from_k[next_node_index] > state.cost_to_reach) {
+      minimum_time_from_k[next_node_index] = state.cost_to_reach;
       // Continue BFS from here
-      for (const auto neighbor : node_to_neighbors[state.next_node]) {
-        neighbor_queue.push_back({.next_node = neighbor,
-                                  .prev_node = state.next_node,
-                                  .prev_node_time = new_possible_time});
+      for (const auto &[neighbor, weight] :
+           node_to_neighbors[state.next_node]) {
+        neighbor_queue.push_back(
+            {.next_node = neighbor,
+             .cost_to_reach = state.cost_to_reach + weight});
       }
     }
   }
