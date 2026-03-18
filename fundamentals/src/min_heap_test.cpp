@@ -70,7 +70,7 @@ TEST(MinHeap, TopIsMinAfterDescendingInserts) {
 TEST(MinHeap, TopDoesNotRemoveElement) {
   MinHeap<int> h;
   h.push(5);
-  h.top();
+  auto _ = h.top();
   EXPECT_EQ(h.size(), 1U);
   EXPECT_EQ(h.top(), 5);
 }
