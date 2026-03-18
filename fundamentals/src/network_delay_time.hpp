@@ -1,5 +1,6 @@
 #pragma once
 
+#include "min_heap.hpp"
 #include <algorithm>
 #include <deque>
 #include <functional>
@@ -131,4 +132,47 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
 // Dijkstra: always expand the globally cheapest unvisited node using a
 // min-heap. Each node settled exactly once. O((V + E) log V).
 inline int networkDelayTimeDijkstra(std::vector<std::vector<int>> &times, int n,
-                                    int k) {}
+                                    int k) {
+
+  std::unordered_map<int, std::vector<std::pair<int, int>>> node_to_neighbors;
+
+  for (const auto &edge_time : times) {
+    const auto source_node = edge_time[0];
+    const auto dest_node = edge_time[1];
+    const auto weight = edge_time[2];
+    node_to_neighbors[source_node].emplace_back(dest_node, weight);
+  }
+
+  std::vector<int> minimum_time_from_k(static_cast<size_t>(n), -1);
+  const auto k_index = static_cast<size_t>(k - 1);
+  minimum_time_from_k[k_index] = 0;
+
+  // Now want to use min_heap to keep track of globally shortest path we've
+  // explored so far
+  MinHeap<std::pair<int, int>> search_frontier;
+  for (const auto &[next_node, weight] : node_to_neighbors[k]) {
+    search_frontier.push({weight, next_node});
+    minimum_time_from_k[next_node - 1] = weight;
+  }
+
+  while (!search_frontier.empty()) {
+    auto [time_so_far, node] = search_frontier.pop();
+    for (const auto &[next_node, additional_time] : node_to_neighbors[node]) {
+      auto new_possible_time = time_so_far + additional_time;
+      if (minimum_time_from_k[next_node - 1] == -1 ||
+          minimum_time_from_k[next_node - 1] > new_possible_time) {
+        minimum_time_from_k[next_node - 1] = new_possible_time;
+        search_frontier.push({new_possible_time, next_node});
+      }
+    }
+  }
+
+  const auto min_time = *std::ranges::min_element(minimum_time_from_k.begin(),
+                                                  minimum_time_from_k.end());
+  if (min_time == -1) {
+    return -1;
+  }
+
+  return *std::ranges::max_element(minimum_time_from_k.begin(),
+                                   minimum_time_from_k.end());
+}
