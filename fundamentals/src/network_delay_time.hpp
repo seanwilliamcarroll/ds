@@ -150,18 +150,21 @@ inline int networkDelayTimeDijkstra(std::vector<std::vector<int>> &times, int n,
   // Now want to use min_heap to keep track of globally shortest path we've
   // explored so far
   MinHeap<std::pair<int, int>> search_frontier;
-  for (const auto &[next_node, weight] : node_to_neighbors[k]) {
-    search_frontier.push({weight, next_node});
-    minimum_time_from_k[next_node - 1] = weight;
-  }
+  search_frontier.push({0, k});
 
   while (!search_frontier.empty()) {
     auto [time_so_far, node] = search_frontier.pop();
+    auto node_index = static_cast<size_t>(node - 1);
+    if (time_so_far > minimum_time_from_k[node_index]) {
+      // This path is no good, skip it
+      continue;
+    }
     for (const auto &[next_node, additional_time] : node_to_neighbors[node]) {
       auto new_possible_time = time_so_far + additional_time;
-      if (minimum_time_from_k[next_node - 1] == -1 ||
-          minimum_time_from_k[next_node - 1] > new_possible_time) {
-        minimum_time_from_k[next_node - 1] = new_possible_time;
+      auto next_node_index = static_cast<size_t>(next_node - 1);
+      if (minimum_time_from_k[next_node_index] == -1 ||
+          minimum_time_from_k[next_node_index] > new_possible_time) {
+        minimum_time_from_k[next_node_index] = new_possible_time;
         search_frontier.push({new_possible_time, next_node});
       }
     }
