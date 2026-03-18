@@ -41,8 +41,8 @@ inline int longestCommonSubsequence(const std::string &text1,
             std::max(lcs_current_row[index_2 - 1], lcs_last_row[index_2]);
       }
     }
-    lcs_last_row = lcs_current_row;
+    std::swap(lcs_last_row, lcs_current_row);
   }
 
-  return static_cast<int>(lcs_current_row.back());
+  return static_cast<int>(lcs_last_row.back());
 }
