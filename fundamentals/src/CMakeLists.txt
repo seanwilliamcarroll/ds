@@ -21,3 +21,7 @@ add_test(NAME clone_graph COMMAND clone_graph_test)
 add_executable(course_schedule_test course_schedule_test.cpp)
 target_link_libraries(course_schedule_test GTest::gtest_main)
 add_test(NAME course_schedule COMMAND course_schedule_test)
+
+add_executable(network_delay_time_test network_delay_time_test.cpp)
+target_link_libraries(network_delay_time_test GTest::gtest_main)
+add_test(NAME network_delay_time COMMAND network_delay_time_test)
