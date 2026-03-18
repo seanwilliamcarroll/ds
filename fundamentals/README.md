@@ -69,7 +69,7 @@ course scheduling, island counting).
 |---|---------|---------|-----|--------|
 | 1 | BFS/DFS on implicit graph | Number of Islands | Grid as graph — no class needed, focus on traversal | done |
 | 2 | Adjacency list, deep copy | Clone Graph | Forces you to build and traverse a neighbor-list representation | done |
-| 3 | Topological sort, cycle detection | Course Schedule I & II | Directed graph, in-degree tracking, Kahn's algorithm | |
+| 3 | Topological sort, cycle detection | Course Schedule I & II | Directed graph, in-degree tracking, Kahn's algorithm | done |
 | 4 | Weighted shortest path | Network Delay Time (SPFA + Dijkstra) | Min-heap from scratch, SPFA vs Dijkstra benchmarking across graph density | done |
 
 ---
