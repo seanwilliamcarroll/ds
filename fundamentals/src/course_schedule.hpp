@@ -41,8 +41,8 @@ inline bool canFinish(int numCourses,
 
   // Have a list of edges with numCourses nodes
   for (const auto &prerequisite : prerequisites) {
-    const auto intro_course = prerequisite[0];
-    const auto advanced_course = prerequisite[1];
+    const auto intro_course = prerequisite[1];
+    const auto advanced_course = prerequisite[0];
 
     // An advanced course depends on taking an intro first
     node_to_children[intro_course].push_back(advanced_course);
@@ -75,18 +75,13 @@ inline bool canFinish(int numCourses,
         }
         current_path.emplace_back(StackState::FINISH_EXPLORING, current_node);
         currently_searching[static_cast<size_t>(current_node)] = true;
-        bool children_to_explore = false;
         // We need to search the children of this node
         for (const auto child : node_to_children[current_node]) {
           if (fully_explored[static_cast<size_t>(child)]) {
             // Don't need to search it again
             continue;
           }
-          children_to_explore = true;
           current_path.emplace_back(StackState::EXPLORE, child);
-        }
-        if (!children_to_explore) {
-          fully_explored[static_cast<size_t>(current_node)] = true;
         }
         break;
       }
@@ -135,5 +130,68 @@ inline bool canFinish(int numCourses,
 
 inline std::vector<int>
 findOrder(int numCourses, std::vector<std::vector<int>> &prerequisites) {
-  return {};
+
+  std::unordered_map<int, std::vector<int>> node_to_children;
+
+  enum StackState : uint8_t { EXPLORE, FINISH_EXPLORING };
+
+  // Have a list of edges with numCourses nodes
+  for (const auto &prerequisite : prerequisites) {
+    const auto intro_course = prerequisite[1];
+    const auto advanced_course = prerequisite[0];
+
+    // An advanced course depends on taking an intro first
+    node_to_children[intro_course].push_back(advanced_course);
+  }
+
+  // Do DFS keeping track of the current path and the fully explored values
+  std::vector<bool> fully_explored(static_cast<size_t>(numCourses), false);
+
+  std::vector<int> course_order;
+
+  for (int course_index = 0; course_index < numCourses; ++course_index) {
+    if (fully_explored[static_cast<size_t>(course_index)]) {
+      continue;
+    }
+    // Do DFS
+    std::vector<bool> currently_searching(fully_explored.size(), false);
+    std::vector<std::pair<StackState, int>> current_path{
+        {StackState::EXPLORE, course_index}};
+    while (!current_path.empty()) {
+      const auto [state, current_node] = std::move(current_path.back());
+      current_path.pop_back();
+
+      switch (state) {
+      case StackState::EXPLORE: {
+        if (fully_explored[static_cast<size_t>(current_node)]) {
+          // We know all the children are good
+          continue;
+        }
+        if (currently_searching[static_cast<size_t>(current_node)]) {
+          // Already seen this node on this path, cycle detected
+          return {};
+        }
+        current_path.emplace_back(StackState::FINISH_EXPLORING, current_node);
+        currently_searching[static_cast<size_t>(current_node)] = true;
+        // We need to search the children of this node
+        for (const auto child : node_to_children[current_node]) {
+          if (fully_explored[static_cast<size_t>(child)]) {
+            // Don't need to search it again
+            continue;
+          }
+          current_path.emplace_back(StackState::EXPLORE, child);
+        }
+        break;
+      }
+      case StackState::FINISH_EXPLORING: {
+        currently_searching[static_cast<size_t>(current_node)] = false;
+        fully_explored[static_cast<size_t>(current_node)] = true;
+        course_order.push_back(current_node);
+        break;
+      }
+      }
+    }
+  }
+
+  return {course_order.rbegin(), course_order.rend()};
 }
