@@ -61,7 +61,7 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
     const auto source_node = edge_time[0];
     const auto dest_node = edge_time[1];
     const auto weight = edge_time[2];
-    node_to_neighbors[source_node].push_back({dest_node, weight});
+    node_to_neighbors[source_node].emplace_back(dest_node, weight);
   }
 
   std::vector<int> minimum_time_from_k(static_cast<size_t>(n),
