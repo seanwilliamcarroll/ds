@@ -30,6 +30,10 @@ add_executable(min_heap_test min_heap_test.cpp)
 target_link_libraries(min_heap_test GTest::gtest_main)
 add_test(NAME min_heap COMMAND min_heap_test)
 
+add_executable(knapsack_test knapsack_test.cpp)
+target_link_libraries(knapsack_test GTest::gtest_main)
+add_test(NAME knapsack COMMAND knapsack_test)
+
 add_executable(edit_distance_test edit_distance_test.cpp)
 target_link_libraries(edit_distance_test GTest::gtest_main)
 add_test(NAME edit_distance COMMAND edit_distance_test)
