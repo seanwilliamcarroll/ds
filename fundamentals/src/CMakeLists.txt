@@ -30,5 +30,9 @@ add_executable(min_heap_test min_heap_test.cpp)
 target_link_libraries(min_heap_test GTest::gtest_main)
 add_test(NAME min_heap COMMAND min_heap_test)
 
+add_executable(longest_common_subsequence_test longest_common_subsequence_test.cpp)
+target_link_libraries(longest_common_subsequence_test GTest::gtest_main)
+add_test(NAME longest_common_subsequence COMMAND longest_common_subsequence_test)
+
 add_executable(network_delay_time_bench network_delay_time_bench.cpp)
 target_link_libraries(network_delay_time_bench benchmark::benchmark)
