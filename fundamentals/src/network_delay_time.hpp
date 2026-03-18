@@ -66,19 +66,13 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
 
   std::vector<int> minimum_time_from_k(static_cast<size_t>(n),
                                        std::numeric_limits<int>::max());
-  const auto k_index = static_cast<size_t>(k - 1);
-  minimum_time_from_k[k_index] = 0;
 
   struct SearchState {
     int next_node;
     int cost_to_reach;
   };
 
-  std::deque<SearchState> neighbor_queue;
-
-  for (const auto &[neighbor, weight] : node_to_neighbors[k]) {
-    neighbor_queue.push_back({.next_node = neighbor, .cost_to_reach = weight});
-  }
+  std::deque<SearchState> neighbor_queue{{.next_node = k, .cost_to_reach = 0}};
 
   while (!neighbor_queue.empty()) {
     const auto state = neighbor_queue.front();
