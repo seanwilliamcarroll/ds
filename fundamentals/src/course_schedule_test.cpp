@@ -70,6 +70,40 @@ TEST(CourseSchedule, CanFinish_ConvergingPathsWithChild) {
   EXPECT_TRUE(canFinish(4, prereqs));
 }
 
+TEST(CourseSchedule, CanFinish_LongCycle) {
+  // Cycle spanning many nodes: 0->1->2->3->4->0
+  std::vector<std::vector<int>> prereqs = {
+      {1, 0}, {2, 1}, {3, 2}, {4, 3}, {0, 4}};
+  EXPECT_FALSE(canFinish(5, prereqs));
+}
+
+TEST(CourseSchedule, CanFinish_CycleNotReachableFromStart) {
+  // Nodes 0 and 1 are fine; nodes 2 and 3 form a cycle independent of 0/1
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}, {2, 3}};
+  EXPECT_FALSE(canFinish(4, prereqs));
+}
+
+TEST(CourseSchedule, CanFinish_SelfLoop) {
+  // A course that requires itself
+  std::vector<std::vector<int>> prereqs = {{0, 0}};
+  EXPECT_FALSE(canFinish(1, prereqs));
+}
+
+TEST(CourseSchedule, CanFinish_StarTopology) {
+  // All courses require course 0; no cycles
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 0}, {4, 0}};
+  EXPECT_TRUE(canFinish(5, prereqs));
+}
+
+TEST(CourseSchedule, CanFinish_MaximalDAG) {
+  // Every course i requires course i-1 (long chain, no cycle)
+  std::vector<std::vector<int>> prereqs;
+  for (int i = 1; i < 10; ++i) {
+    prereqs.push_back({i, i - 1});
+  }
+  EXPECT_TRUE(canFinish(10, prereqs));
+}
+
 // ── findOrder ────────────────────────────────────────────────────────────────
 
 // Verify that the returned order is a valid topological sort:
@@ -151,5 +185,59 @@ TEST(CourseSchedule, FindOrder_LinearChain) {
 TEST(CourseSchedule, FindOrder_CycleInLargerGraph) {
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {1, 2}};
   auto order = findOrder(3, prereqs);
+  EXPECT_TRUE(order.empty());
+}
+
+TEST(CourseSchedule, FindOrder_DiamondShape) {
+  //     0
+  //    / \
+  //   1   2
+  //    \ /
+  //     3
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 1}, {3, 2}};
+  auto order = findOrder(4, prereqs);
+  verifyOrder(4, prereqs, order);
+}
+
+TEST(CourseSchedule, FindOrder_DisconnectedGraph) {
+  // Two independent chains: 0->1 and 2->3
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}};
+  auto order = findOrder(4, prereqs);
+  verifyOrder(4, prereqs, order);
+}
+
+TEST(CourseSchedule, FindOrder_ConvergingPaths) {
+  // 0->1->3, 0->2->1 (no cycle, two paths to 1)
+  std::vector<std::vector<int>> prereqs = {{0, 1}, {0, 2}, {2, 1}, {1, 3}};
+  auto order = findOrder(4, prereqs);
+  verifyOrder(4, prereqs, order);
+}
+
+TEST(CourseSchedule, FindOrder_LongCycle) {
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {3, 2}, {0, 3}};
+  auto order = findOrder(4, prereqs);
+  EXPECT_TRUE(order.empty());
+}
+
+TEST(CourseSchedule, FindOrder_StarTopology) {
+  // All courses require course 0
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 0}, {4, 0}};
+  auto order = findOrder(5, prereqs);
+  verifyOrder(5, prereqs, order);
+}
+
+TEST(CourseSchedule, FindOrder_LongChain) {
+  std::vector<std::vector<int>> prereqs;
+  for (int i = 1; i < 10; ++i) {
+    prereqs.push_back({i, i - 1});
+  }
+  auto order = findOrder(10, prereqs);
+  verifyOrder(10, prereqs, order);
+}
+
+TEST(CourseSchedule, FindOrder_CycleNotReachableFromStart) {
+  // Nodes 2 and 3 form a cycle; should still return empty
+  std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}, {2, 3}};
+  auto order = findOrder(4, prereqs);
   EXPECT_TRUE(order.empty());
 }
