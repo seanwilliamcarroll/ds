@@ -64,6 +64,12 @@ TEST(CourseSchedule, CanFinish_ConvergingPaths) {
   EXPECT_TRUE(canFinish(3, prereqs));
 }
 
+TEST(CourseSchedule, CanFinish_ConvergingPathsWithChild) {
+  // Same as above but node 1 has a child (3): 0->1->3, 0->2->1 (no cycle)
+  std::vector<std::vector<int>> prereqs = {{0, 1}, {0, 2}, {2, 1}, {1, 3}};
+  EXPECT_TRUE(canFinish(4, prereqs));
+}
+
 // ── findOrder ────────────────────────────────────────────────────────────────
 
 // Verify that the returned order is a valid topological sort:
