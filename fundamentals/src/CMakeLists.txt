@@ -29,3 +29,6 @@ add_test(NAME network_delay_time COMMAND network_delay_time_test)
 add_executable(min_heap_test min_heap_test.cpp)
 target_link_libraries(min_heap_test GTest::gtest_main)
 add_test(NAME min_heap COMMAND min_heap_test)
+
+add_executable(network_delay_time_bench network_delay_time_bench.cpp)
+target_link_libraries(network_delay_time_bench benchmark::benchmark)
