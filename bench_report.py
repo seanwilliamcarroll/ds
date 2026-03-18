@@ -38,6 +38,19 @@ def parse_benchmark_name(name: str) -> dict:
     }
 
 
+def parse_density_benchmark_name(name: str) -> dict:
+    """Extract algorithm, n, and density_pct from a benchmark name like
+    BM_SPFA/100/25."""
+    match = re.match(r"^BM_(\w+)/(\d+)/(\d+)$", name)
+    if not match:
+        return {"algorithm": name, "n": 0, "density_pct": 0}
+    return {
+        "algorithm": match.group(1),
+        "n": int(match.group(2)),
+        "density_pct": int(match.group(3)),
+    }
+
+
 def pick_unit(series: pd.Series) -> tuple[str, float]:
     """Pick a single display unit for an entire series of ns values."""
     max_val = series.max()
@@ -187,6 +200,182 @@ def build_speedup_report(df: pd.DataFrame, baseline: str) -> go.Figure:
     return fig
 
 
+def load_density_csvs(paths: list[str]) -> pd.DataFrame:
+    """Load CSVs with two-parameter benchmark names (BM_Algo/n/density_pct)."""
+    frames = []
+    for path in paths:
+        df = pd.read_csv(path)
+        df["source"] = Path(path).stem
+        frames.append(df)
+    combined = pd.concat(frames, ignore_index=True)
+    parsed = combined["name"].apply(parse_density_benchmark_name).apply(pd.Series)
+    return pd.concat([combined, parsed], axis=1)
+
+
+def build_density_report(df: pd.DataFrame) -> go.Figure:
+    """One subplot per n value. x-axis = density_pct, y-axis = cpu_time.
+    One line per algorithm so the crossover point is visually obvious."""
+    ns = sorted(df["n"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+    n_rows = len(ns)
+
+    fig = make_subplots(
+        rows=n_rows,
+        cols=1,
+        subplot_titles=[f"n = {n}" for n in ns],
+        vertical_spacing=0.06,
+    )
+
+    for i, n in enumerate(ns, start=1):
+        n_df = df[df["n"] == n]
+        unit, divisor = pick_unit(n_df["cpu_time"])
+
+        for j, algo in enumerate(algorithms):
+            algo_df = n_df[n_df["algorithm"] == algo].sort_values("density_pct")
+            fig.add_trace(
+                go.Scatter(
+                    x=algo_df["density_pct"],
+                    y=algo_df["cpu_time"] / divisor,
+                    mode="lines+markers",
+                    name=algo,
+                    legendgroup=algo,
+                    showlegend=(i == 1),
+                    line=dict(color=COLORS[j % len(COLORS)]),
+                    hovertemplate=(
+                        f"<b>{algo}</b><br>"
+                        f"density: %{{x}}%<br>"
+                        f"time: %{{y:.2f}} {unit}<br>"
+                        "<extra></extra>"
+                    ),
+                ),
+                row=i,
+                col=1,
+            )
+
+        fig.update_xaxes(title_text="Density (%)", row=i, col=1)
+        fig.update_yaxes(title_text=f"CPU time ({unit})", row=i, col=1)
+
+    fig.update_layout(
+        height=300 * n_rows,
+        title_text="SPFA vs Dijkstra — CPU time by density",
+        template="plotly_white",
+        hovermode="x unified",
+    )
+
+    return fig
+
+
+def build_by_n_report(df: pd.DataFrame) -> go.Figure:
+    """One subplot per density value. x-axis = n (log scale), y-axis = cpu_time.
+    One line per algorithm — shows how each scales with n at fixed density."""
+    densities = sorted(df["density_pct"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+    n_rows = len(densities)
+
+    fig = make_subplots(
+        rows=n_rows,
+        cols=1,
+        subplot_titles=[f"density = {d}%" for d in densities],
+        vertical_spacing=0.06,
+    )
+
+    for i, density in enumerate(densities, start=1):
+        d_df = df[df["density_pct"] == density]
+        unit, divisor = pick_unit(d_df["cpu_time"])
+
+        for j, algo in enumerate(algorithms):
+            algo_df = d_df[d_df["algorithm"] == algo].sort_values("n")
+            fig.add_trace(
+                go.Scatter(
+                    x=algo_df["n"],
+                    y=algo_df["cpu_time"] / divisor,
+                    mode="lines+markers",
+                    name=algo,
+                    legendgroup=algo,
+                    showlegend=(i == 1),
+                    line=dict(color=COLORS[j % len(COLORS)]),
+                    hovertemplate=(
+                        f"<b>{algo}</b><br>"
+                        f"n: %{{x}}<br>"
+                        f"time: %{{y:.2f}} {unit}<br>"
+                        "<extra></extra>"
+                    ),
+                ),
+                row=i,
+                col=1,
+            )
+
+        fig.update_xaxes(title_text="n", type="log", row=i, col=1)
+        fig.update_yaxes(title_text=f"CPU time ({unit})", row=i, col=1)
+
+    fig.update_layout(
+        height=300 * n_rows,
+        title_text="SPFA vs Dijkstra — CPU time by n",
+        template="plotly_white",
+        hovermode="x unified",
+    )
+
+    return fig
+
+
+def build_heatmap_report(df: pd.DataFrame) -> go.Figure:
+    """Heatmap of SPFA/Dijkstra speedup ratio. x-axis = n, y-axis = density_pct.
+    Values > 1 mean Dijkstra is faster; values < 1 mean SPFA is faster.
+    Colorscale is centered at 1.0 so the crossover is immediately visible."""
+    ns = sorted(df["n"].unique())
+    densities = sorted(df["density_pct"].unique())
+
+    spfa = df[df["algorithm"] == "SPFA"].set_index(["n", "density_pct"])["cpu_time"]
+    dijkstra = df[df["algorithm"] == "Dijkstra"].set_index(["n", "density_pct"])["cpu_time"]
+
+    # ratio[i][j] = SPFA_time / Dijkstra_time at (density=densities[i], n=ns[j])
+    ratio = []
+    text = []
+    for d in densities:
+        row = []
+        row_text = []
+        for n in ns:
+            key = (n, d)
+            if key in spfa.index and key in dijkstra.index:
+                r = spfa[key] / dijkstra[key]
+                row.append(r)
+                row_text.append(f"{r:.2f}x")
+            else:
+                row.append(None)
+                row_text.append("")
+        ratio.append(row)
+        text.append(row_text)
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=ratio,
+            x=[str(n) for n in ns],
+            y=[f"{d}%" for d in densities],
+            text=text,
+            texttemplate="%{text}",
+            colorscale="RdBu_r",
+            zmid=1.0,
+            colorbar=dict(title="SPFA / Dijkstra"),
+            hovertemplate=(
+                "n: %{x}<br>"
+                "density: %{y}<br>"
+                "ratio: %{text}<br>"
+                "<extra></extra>"
+            ),
+        )
+    )
+
+    fig.update_layout(
+        title_text="SPFA / Dijkstra speedup ratio (>1 = Dijkstra faster, <1 = SPFA faster)",
+        xaxis_title="n",
+        yaxis_title="Density (%)",
+        template="plotly_white",
+        height=500,
+    )
+
+    return fig
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate plotly reports from Google Benchmark CSV output."
@@ -205,17 +394,33 @@ def main():
         help="Type to use as the 1.0x baseline"
     )
 
+    density_parser = subparsers.add_parser(
+        "density", help="CPU time vs density for two-parameter benchmarks (BM_Algo/n/density)"
+    )
+    density_parser.add_argument("csvs", nargs="+", help="Google Benchmark CSV files")
+
+    by_n_parser = subparsers.add_parser(
+        "by-n", help="CPU time vs n, one subplot per density (BM_Algo/n/density)"
+    )
+    by_n_parser.add_argument("csvs", nargs="+", help="Google Benchmark CSV files")
+
+    heatmap_parser = subparsers.add_parser(
+        "heatmap", help="Heatmap of SPFA/Dijkstra ratio over n × density"
+    )
+    heatmap_parser.add_argument("csvs", nargs="+", help="Google Benchmark CSV files")
+
     args = parser.parse_args()
-    df = load_csvs(args.csvs)
     stem = Path(args.csvs[0]).stem
 
     if args.mode == "raw":
+        df = load_csvs(args.csvs)
         fig = build_raw_report(df)
         out = f"{stem}_raw.html"
         fig.write_html(out)
         print(f"Report written to {out}")
 
     elif args.mode == "speedup":
+        df = load_csvs(args.csvs)
         types = list(df["type"].unique())
         if args.baseline_type not in types:
             print(
@@ -226,6 +431,27 @@ def main():
             sys.exit(1)
         fig = build_speedup_report(df, args.baseline_type)
         out = f"{stem}_speedup.html"
+        fig.write_html(out)
+        print(f"Report written to {out}")
+
+    elif args.mode == "density":
+        df = load_density_csvs(args.csvs)
+        fig = build_density_report(df)
+        out = f"{stem}_density.html"
+        fig.write_html(out)
+        print(f"Report written to {out}")
+
+    elif args.mode == "by-n":
+        df = load_density_csvs(args.csvs)
+        fig = build_by_n_report(df)
+        out = f"{stem}_by_n.html"
+        fig.write_html(out)
+        print(f"Report written to {out}")
+
+    elif args.mode == "heatmap":
+        df = load_density_csvs(args.csvs)
+        fig = build_heatmap_report(df)
+        out = f"{stem}_heatmap.html"
         fig.write_html(out)
         print(f"Report written to {out}")
 
