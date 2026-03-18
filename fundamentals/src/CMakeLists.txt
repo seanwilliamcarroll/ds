@@ -25,3 +25,7 @@ add_test(NAME course_schedule COMMAND course_schedule_test)
 add_executable(network_delay_time_test network_delay_time_test.cpp)
 target_link_libraries(network_delay_time_test GTest::gtest_main)
 add_test(NAME network_delay_time COMMAND network_delay_time_test)
+
+add_executable(min_heap_test min_heap_test.cpp)
+target_link_libraries(min_heap_test GTest::gtest_main)
+add_test(NAME min_heap COMMAND min_heap_test)
