@@ -33,7 +33,10 @@ public:
     return output;
   }
 
-  const T &top() const { return data_.front(); }
+  [[nodiscard]]
+  const T &top() const {
+    return data_.front();
+  }
 
   [[nodiscard]]
   size_t size() const {
