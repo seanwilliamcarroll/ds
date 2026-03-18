@@ -37,7 +37,7 @@ inline bool canFinish(int numCourses,
 
   std::unordered_map<int, std::vector<int>> node_to_children;
 
-  enum StackState : uint8_t { EXPLORE, FINISH_EXPLORING };
+  enum class StackState : uint8_t { EXPLORE, FINISH_EXPLORING };
 
   // Have a list of edges with numCourses nodes
   for (const auto &prerequisite : prerequisites) {
@@ -133,7 +133,7 @@ findOrder(int numCourses, std::vector<std::vector<int>> &prerequisites) {
 
   std::unordered_map<int, std::vector<int>> node_to_children;
 
-  enum StackState : uint8_t { EXPLORE, FINISH_EXPLORING };
+  enum class StackState : uint8_t { EXPLORE, FINISH_EXPLORING };
 
   // Have a list of edges with numCourses nodes
   for (const auto &prerequisite : prerequisites) {
