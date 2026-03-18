@@ -60,8 +60,10 @@ template <> struct hash<Edge> {
 };
 } // namespace std
 
-inline int networkDelayTime(std::vector<std::vector<int>> &times, int n,
-                            int k) {
+// SPFA (Shortest Path Faster Algorithm): BFS with re-enqueue on improvement.
+// Correct but may visit nodes multiple times. O(V * E) worst case.
+inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
+                                int k) {
 
   // We should build an adjacency list, keeping the weights in mind
   // Should keep a vector of minimum time it takes to reach that node starting
@@ -125,3 +127,8 @@ inline int networkDelayTime(std::vector<std::vector<int>> &times, int n,
   return *std::ranges::max_element(minimum_time_from_k.begin(),
                                    minimum_time_from_k.end());
 }
+
+// Dijkstra: always expand the globally cheapest unvisited node using a
+// min-heap. Each node settled exactly once. O((V + E) log V).
+inline int networkDelayTimeDijkstra(std::vector<std::vector<int>> &times, int n,
+                                    int k) {}
