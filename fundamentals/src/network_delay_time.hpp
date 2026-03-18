@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <deque>
 #include <functional>
+#include <limits>
 #include <unordered_map>
 #include <vector>
 
@@ -84,7 +85,8 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
     weights[{source_node, dest_node}] = weight;
   }
 
-  std::vector<int> minimum_time_from_k(static_cast<size_t>(n), -1);
+  std::vector<int> minimum_time_from_k(static_cast<size_t>(n),
+                                       std::numeric_limits<int>::max());
   const auto k_index = static_cast<size_t>(k - 1);
   minimum_time_from_k[k_index] = 0;
 
@@ -107,8 +109,7 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
     const auto next_node_index = static_cast<size_t>(state.next_node - 1);
     const auto new_possible_time =
         state.prev_node_time + weights.at({state.prev_node, state.next_node});
-    if (minimum_time_from_k[next_node_index] == -1 ||
-        minimum_time_from_k[next_node_index] > new_possible_time) {
+    if (minimum_time_from_k[next_node_index] > new_possible_time) {
       minimum_time_from_k[next_node_index] = new_possible_time;
       // Continue BFS from here
       for (const auto neighbor : node_to_neighbors[state.next_node]) {
@@ -119,14 +120,12 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
     }
   }
 
-  const auto min_time = *std::ranges::min_element(minimum_time_from_k.begin(),
-                                                  minimum_time_from_k.end());
-  if (min_time == -1) {
+  auto max_element = *std::ranges::max_element(minimum_time_from_k.begin(),
+                                               minimum_time_from_k.end());
+  if (max_element == std::numeric_limits<int>::max()) {
     return -1;
   }
-
-  return *std::ranges::max_element(minimum_time_from_k.begin(),
-                                   minimum_time_from_k.end());
+  return max_element;
 }
 
 // Dijkstra: always expand the globally cheapest unvisited node using a
@@ -143,7 +142,8 @@ inline int networkDelayTimeDijkstra(std::vector<std::vector<int>> &times, int n,
     node_to_neighbors[source_node].emplace_back(dest_node, weight);
   }
 
-  std::vector<int> minimum_time_from_k(static_cast<size_t>(n), -1);
+  std::vector<int> minimum_time_from_k(static_cast<size_t>(n),
+                                       std::numeric_limits<int>::max());
   const auto k_index = static_cast<size_t>(k - 1);
   minimum_time_from_k[k_index] = 0;
 
@@ -162,20 +162,17 @@ inline int networkDelayTimeDijkstra(std::vector<std::vector<int>> &times, int n,
     for (const auto &[next_node, additional_time] : node_to_neighbors[node]) {
       auto new_possible_time = time_so_far + additional_time;
       auto next_node_index = static_cast<size_t>(next_node - 1);
-      if (minimum_time_from_k[next_node_index] == -1 ||
-          minimum_time_from_k[next_node_index] > new_possible_time) {
+      if (minimum_time_from_k[next_node_index] > new_possible_time) {
         minimum_time_from_k[next_node_index] = new_possible_time;
         search_frontier.push({new_possible_time, next_node});
       }
     }
   }
 
-  const auto min_time = *std::ranges::min_element(minimum_time_from_k.begin(),
-                                                  minimum_time_from_k.end());
-  if (min_time == -1) {
+  auto max_time = *std::ranges::max_element(minimum_time_from_k.begin(),
+                                            minimum_time_from_k.end());
+  if (max_time == std::numeric_limits<int>::max()) {
     return -1;
   }
-
-  return *std::ranges::max_element(minimum_time_from_k.begin(),
-                                   minimum_time_from_k.end());
+  return max_time;
 }
