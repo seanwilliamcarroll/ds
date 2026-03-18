@@ -58,7 +58,8 @@ course scheduling, island counting).
 
 **Key algorithms:**
 - **Topological sort** — ordering of nodes in a DAG such that all edges point forward; two approaches: DFS post-order reversal, or Kahn's algorithm (iterative, BFS-based). Critical for dependency resolution, compiler scheduling.
-- **Dijkstra's** — single-source shortest path in weighted graphs with non-negative edges; O((V+E) log V) with a min-heap
+- **Min-heap** — complete binary tree in a flat array; `bubble_up`/`bubble_down` give O(log n) push/pop. Built from scratch as a prerequisite for Dijkstra.
+- **Dijkstra's** — single-source shortest path in weighted graphs with non-negative edges; O((V+E) log V) with a min-heap. Lazy deletion (stale entry skip) instead of decrease-key.
 - **Cycle detection** — DFS with a "in-stack" visited set (directed); union-find or DFS coloring (undirected)
 - **Connected components / SCC** — union-find for undirected; Tarjan's or Kosaraju's for SCCs in directed graphs
 
@@ -69,7 +70,7 @@ course scheduling, island counting).
 | 1 | BFS/DFS on implicit graph | Number of Islands | Grid as graph — no class needed, focus on traversal | done |
 | 2 | Adjacency list, deep copy | Clone Graph | Forces you to build and traverse a neighbor-list representation | done |
 | 3 | Topological sort, cycle detection | Course Schedule I & II | Directed graph, in-degree tracking, Kahn's algorithm | |
-| 4 | Weighted shortest path | Dijkstra's (Network Delay Time) | Priority queue, edge weights, single-source shortest path | |
+| 4 | Weighted shortest path | Network Delay Time (SPFA + Dijkstra) | Min-heap from scratch, SPFA vs Dijkstra benchmarking across graph density | done |
 
 ---
 
