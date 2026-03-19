@@ -39,7 +39,7 @@ implement bottom-up, then optimize space if possible.
 | 4 | Two sequences | Longest Common Subsequence | Canonical "two string" DP | done |
 | 5 | Two sequences | Edit Distance | Adds operations to LCS pattern | done |
 | 6 | Knapsack | 0/1 Knapsack | Template for a huge family of problems | done |
-| 7 | Interval | Longest Palindromic Substring | Gentler intro to interval DP | |
+| 7 | Interval | Longest Palindromic Substring | Gentler intro to interval DP | done |
 
 ---
 
