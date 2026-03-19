@@ -36,9 +36,9 @@ implement bottom-up, then optimize space if possible.
 | 1 | 1D | Coin Change | Clean unbounded knapsack recurrence, not just "look back 1-2 steps" | done |
 | 2 | 1D | House Robber | "Take or skip" decision pattern | done |
 | 3 | 2D grid | Min Path Sum | Introduces 2D state naturally | done |
-| 4 | Two sequences | Longest Common Subsequence | Canonical "two string" DP | |
-| 5 | Two sequences | Edit Distance | Adds operations to LCS pattern | |
-| 6 | Knapsack | 0/1 Knapsack | Template for a huge family of problems | |
+| 4 | Two sequences | Longest Common Subsequence | Canonical "two string" DP | done |
+| 5 | Two sequences | Edit Distance | Adds operations to LCS pattern | done |
+| 6 | Knapsack | 0/1 Knapsack | Template for a huge family of problems | done |
 | 7 | Interval | Longest Palindromic Substring | Gentler intro to interval DP | |
 
 ---
