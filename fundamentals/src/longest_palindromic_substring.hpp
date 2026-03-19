@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -38,15 +39,23 @@ inline std::string longestPalindrome(const std::string &s) {
   std::vector<std::vector<bool>> is_substring_palindrome(
       s.size() + 1, std::vector<bool>(s.size() + 1, false));
 
+  auto get_exclusive_right_bound = [&s](size_t length) {
+    return s.size() - length + 1;
+  };
+
+  auto get_inclusive_right_index = [](size_t index, size_t length) {
+    return index + length - 1;
+  };
+
   // Base cases
-  for (size_t index = 0; index < s.size(); ++index) {
+  for (size_t index = 0; index < get_exclusive_right_bound(1); ++index) {
     // Single character is always a palindrome
     is_substring_palindrome[index][index] = true;
 
     // Length 2 while we're here
-    if (index < s.size() - 2 + 1) {
+    if (index < get_exclusive_right_bound(2)) {
       auto left_index = index;
-      auto right_index = index + 2 - 1;
+      auto right_index = get_inclusive_right_index(index, 2);
       if (s[left_index] == s[right_index]) {
         is_substring_palindrome[left_index][right_index] = true;
         longest_palindrome = s.substr(index, 2);
@@ -55,9 +64,9 @@ inline std::string longestPalindrome(const std::string &s) {
   }
 
   for (size_t length = 3; length <= s.size(); ++length) {
-    for (size_t index = 0; index < s.size() - length + 1; ++index) {
+    for (size_t index = 0; index < get_exclusive_right_bound(length); ++index) {
       auto left_index = index;
-      auto right_index = index + length - 1;
+      auto right_index = get_inclusive_right_index(index, length);
       auto left_end = s[left_index];
       auto right_end = s[right_index];
       if (left_end != right_end) {
