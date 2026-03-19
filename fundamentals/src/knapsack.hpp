@@ -35,39 +35,28 @@
 inline int knapsack(const std::vector<int> &weights,
                     const std::vector<int> &values, int capacity) {
 
-  std::vector<int> current_value_by_capacity_so_far(
-      static_cast<size_t>(capacity + 1), 0);
-
-  std::vector<int> previous_value_by_capacity_so_far(
-      static_cast<size_t>(capacity + 1), 0);
+  std::vector<int> value_by_capacity_so_far(static_cast<size_t>(capacity + 1),
+                                            0);
 
   for (size_t item_index = 0; item_index < weights.size(); ++item_index) {
-    for (int capacity_so_far = 1; capacity_so_far < capacity + 1;
-         ++capacity_so_far) {
+    auto item_value = values[item_index];
+    auto item_weight = weights[item_index];
+    for (int capacity_so_far = capacity; capacity_so_far >= item_weight;
+         --capacity_so_far) {
       // We're deciding here if we are taking item_index or not
+      // By iterating backwards, we can treat the lower weight values as the
+      // same as the "previous row", so no need for an actual previous row
       auto capacity_so_far_as_index = static_cast<size_t>(capacity_so_far);
-      auto item_value = values[item_index];
-      auto item_weight = weights[item_index];
-      auto skip_item_value =
-          previous_value_by_capacity_so_far[capacity_so_far_as_index];
-      current_value_by_capacity_so_far[capacity_so_far_as_index] =
-          skip_item_value;
-      if (capacity_so_far < item_weight) {
-        // Can't take this item
-        continue;
-      }
+      auto skip_item_value = value_by_capacity_so_far[capacity_so_far_as_index];
       auto item_weight_as_index = static_cast<size_t>(item_weight);
-      auto take_item_value =
-          previous_value_by_capacity_so_far[capacity_so_far_as_index -
-                                            item_weight_as_index] +
-          item_value;
+      auto take_item_value = value_by_capacity_so_far[capacity_so_far_as_index -
+                                                      item_weight_as_index] +
+                             item_value;
       if (take_item_value > skip_item_value) {
-        current_value_by_capacity_so_far[capacity_so_far_as_index] =
-            take_item_value;
+        value_by_capacity_so_far[capacity_so_far_as_index] = take_item_value;
       }
     }
-    std::swap(previous_value_by_capacity_so_far,
-              current_value_by_capacity_so_far);
   }
-  return previous_value_by_capacity_so_far.back();
+
+  return value_by_capacity_so_far.back();
 }
