@@ -1,0 +1,3 @@
+add_executable(chaining_hash_map_test chaining_hash_map_test.cpp)
+target_link_libraries(chaining_hash_map_test GTest::gtest_main)
+add_test(NAME chaining_hash_map COMMAND chaining_hash_map_test)

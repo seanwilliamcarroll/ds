@@ -32,3 +32,4 @@ enable_testing()
 # --- Topic subdirectories ---
 add_subdirectory(compiler_systems/src)
 add_subdirectory(fundamentals/src)
+add_subdirectory(performance_oriented/src)

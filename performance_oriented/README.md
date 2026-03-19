@@ -44,10 +44,32 @@ sequences. Typical threshold to resize: 0.75 (chaining) or 0.5–0.875 (open
 addressing). Resizing doubles the array and rehashes everything — O(n) but
 amortized O(1) per insert.
 
+**Deletion in open addressing:**
+Chaining just unlinks a node. Open addressing can't simply empty a slot — probe
+chains pass *through* occupied slots, so emptying one breaks lookups for elements
+inserted past it.
+
+- **Tombstones:** mark deleted slots as "deleted, but keep probing past me."
+  Insert reuses tombstones; lookup probes through them. Simple, but tombstones
+  accumulate and degrade probe lengths. Need periodic rehash to clean up.
+- **Backshift deletion:** shift displaced elements backward to fill the gap.
+  Stop at an empty slot or an element already at its home position. No tombstones,
+  probe lengths stay clean. More complex, but pairs naturally with Robin Hood
+  (you already track probe distances).
+
 **What to understand:**
 - Why `absl::flat_hash_map` and Rust's `HashMap` outperform `std::unordered_map`
 - The tradeoff between load factor and memory usage
 - How SIMD can accelerate probing (SSE2/AVX2 group lookup in Swiss table / `hashbrown`)
+
+**Practice plan — build up from scratch (`int → int`):**
+
+| # | Phase | What | Why | Status |
+|---|-------|------|-----|--------|
+| 0 | Chaining | Hash map with separate chaining (linked list per bucket), insert, find, erase, rehash | Build the baseline; feel the pointer-chasing pain firsthand before fixing it | |
+| 1 | Linear probing | Open-addressed hash map with insert, find, erase (tombstone deletion), rehash | Core mechanics: hashing, probing, load factor, resize | |
+| 2 | Robin Hood | Swap to Robin Hood insertion + backshift deletion | Reduces probe variance, eliminates tombstones, enables early termination on lookup | |
+| 3 | Benchmarking | Benchmark all three implementations against `std::unordered_map` | See *why* open addressing wins — vary load factor, hit/miss ratio, table size | |
 
 ---
 
