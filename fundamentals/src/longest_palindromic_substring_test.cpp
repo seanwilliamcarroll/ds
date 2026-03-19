@@ -51,7 +51,8 @@ TEST(LongestPalindrome, PalindromeAtEnd) {
 }
 
 TEST(LongestPalindrome, PalindromeInMiddle) {
-  EXPECT_EQ(longestPalindrome("xabacbabcba"), "abcbabcba");
+  // "xabacbabcba" — longest palindromes are "cbabc" (4-8) or "abcba" (6-10)
+  expectPalindrome("xabacbabcba", longestPalindrome("xabacbabcba"), 5);
 }
 
 TEST(LongestPalindrome, NoPalindromeOverTwo) {
