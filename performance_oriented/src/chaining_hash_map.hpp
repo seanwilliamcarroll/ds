@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <functional>
-#include <future>
 #include <memory>
 #include <optional>
 
@@ -96,10 +95,7 @@ struct LinkedList {
       }
       current_pointer = current_pointer->next.get();
     }
-    auto new_node = std::make_unique<LinkedListNode>(key, value);
-    tail->next = std::move(new_node);
-    tail = tail->next.get();
-    ++length;
+    force_insert(key, value);
     return true;
   }
 
@@ -129,6 +125,31 @@ struct LinkedList {
     return false;
   }
 
+  [[nodiscard]]
+  bool empty() const {
+    return length == 0;
+  }
+
+  [[nodiscard]]
+  size_t size() const {
+    return length;
+  }
+
+  void force_insert(int key, int value) {
+    if (head == nullptr) {
+      auto new_node = std::make_unique<LinkedListNode>(key, value);
+      head = std::move(new_node);
+      tail = head.get();
+      length = 1;
+      return;
+    }
+    auto new_node = std::make_unique<LinkedListNode>(key, value);
+    tail->next = std::move(new_node);
+    tail = tail->next.get();
+    ++length;
+  }
+
+private:
   std::unique_ptr<LinkedListNode> head = nullptr;
   LinkedListNode *tail = nullptr;
   size_t length = 0;
@@ -192,7 +213,7 @@ private:
     for (const auto &old_bucket : buckets) {
       for (const auto &node : old_bucket) {
         auto new_bucket_index = get_bucket_index(node.key);
-        new_buckets[new_bucket_index].insert(node.key, node.value);
+        new_buckets[new_bucket_index].force_insert(node.key, node.value);
       }
     }
 
@@ -206,7 +227,8 @@ private:
 
   [[nodiscard]]
   bool should_resize() const {
-    double load_percentage = (double(num_entries) / double(num_buckets));
+    auto load_percentage =
+        static_cast<double>(num_entries) / static_cast<double>(num_buckets);
     return load_percentage > MAX_LOAD_PERCENTAGE;
   }
 
