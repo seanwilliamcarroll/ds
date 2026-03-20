@@ -27,13 +27,30 @@ COLORS = [
 
 def parse_benchmark_name(name: str) -> dict:
     """Extract function, type, and size from a benchmark name like
-    BM_InsertDense<IndexArenaTrie>/256."""
+    BM_InsertDense<IndexArenaTrie>/256.
+
+    For nested templates like BM_Insert<ChainingHashMap<0.5>>/256,
+    also extracts impl and load as separate fields."""
     match = re.match(r"^([^<]+)<(.+)>/(\d+)$", name)
     if not match:
-        return {"function": name, "type": "", "size": 0}
+        return {"function": name, "type": "", "impl": "", "load": "", "size": 0}
+
+    full_type = match.group(2)
+
+    # Try to split nested template: Foo<0.75> -> impl=Foo, load=0.75
+    nested = re.match(r"^(\w+)<([^>]+)>$", full_type)
+    if nested:
+        impl = nested.group(1)
+        load = nested.group(2)
+    else:
+        impl = full_type
+        load = ""
+
     return {
         "function": match.group(1),
-        "type": match.group(2),
+        "type": full_type,
+        "impl": impl,
+        "load": load,
         "size": int(match.group(3)),
     }
 
@@ -75,8 +92,11 @@ def load_csvs(paths: list[str]) -> pd.DataFrame:
     return combined
 
 
-def build_raw_report(df: pd.DataFrame) -> go.Figure:
-    """Build a plotly figure with raw CPU times, one subplot per benchmark function."""
+def build_raw_report(df: pd.DataFrame, group_by: str = "type") -> go.Figure:
+    """Build a plotly figure with raw CPU times, one subplot per benchmark function.
+
+    group_by controls the legend grouping: "type" (default), "impl", or "load".
+    """
     functions = df["function"].unique()
     n = len(functions)
 
@@ -89,22 +109,22 @@ def build_raw_report(df: pd.DataFrame) -> go.Figure:
 
     for i, func in enumerate(functions, start=1):
         func_df = df[df["function"] == func]
-        types = func_df["type"].unique()
+        groups = func_df[group_by].unique()
         unit, divisor = pick_unit(func_df["cpu_time"])
 
-        for j, typ in enumerate(types):
-            typ_df = func_df[func_df["type"] == typ].sort_values("size")
+        for j, group in enumerate(groups):
+            group_df = func_df[func_df[group_by] == group].sort_values("size")
             fig.add_trace(
                 go.Scatter(
-                    x=typ_df["size"],
-                    y=typ_df["cpu_time"] / divisor,
+                    x=group_df["size"],
+                    y=group_df["cpu_time"] / divisor,
                     mode="lines+markers",
-                    name=typ,
-                    legendgroup=typ,
+                    name=group,
+                    legendgroup=group,
                     showlegend=(i == 1),
                     line=dict(color=COLORS[j % len(COLORS)]),
                     hovertemplate=(
-                        f"<b>{typ}</b><br>"
+                        f"<b>{group}</b><br>"
                         f"size: %{{x}}<br>"
                         f"time: %{{y:.2f}} {unit}<br>"
                         "<extra></extra>"
@@ -127,10 +147,15 @@ def build_raw_report(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def build_speedup_report(df: pd.DataFrame, baseline: str) -> go.Figure:
+def build_speedup_report(df: pd.DataFrame, baseline: str,
+                         group_by: str = "type") -> go.Figure:
     """Build a plotly figure with grouped bar charts showing speedup
-    relative to baseline type. Each subplot is one benchmark function,
-    bars are grouped by size with one bar per type."""
+    relative to baseline. Each subplot is one benchmark function,
+    bars are grouped by size with one bar per group.
+
+    group_by controls grouping: "type" (default), "impl", or "load".
+    baseline should match a value in the group_by column.
+    """
     functions = df["function"].unique()
     n = len(functions)
 
@@ -143,22 +168,22 @@ def build_speedup_report(df: pd.DataFrame, baseline: str) -> go.Figure:
 
     for i, func in enumerate(functions, start=1):
         func_df = df[df["function"] == func]
-        types = func_df["type"].unique()
+        groups = func_df[group_by].unique()
         sizes = sorted(func_df["size"].unique())
 
-        baseline_df = func_df[func_df["type"] == baseline].set_index("size")
+        baseline_df = func_df[func_df[group_by] == baseline].set_index("size")
 
-        # Ensure baseline type appears first (leftmost bar in each group)
-        ordered_types = [baseline] + [t for t in types if t != baseline]
+        # Ensure baseline appears first (leftmost bar in each group)
+        ordered_groups = [baseline] + [g for g in groups if g != baseline]
 
-        for j, typ in enumerate(ordered_types):
-            typ_df = func_df[func_df["type"] == typ].set_index("size")
+        for j, group in enumerate(ordered_groups):
+            group_df = func_df[func_df[group_by] == group].set_index("size")
             speedups = []
             for size in sizes:
-                if size in baseline_df.index and size in typ_df.index:
+                if size in baseline_df.index and size in group_df.index:
                     speedups.append(
                         baseline_df.loc[size, "cpu_time"]
-                        / typ_df.loc[size, "cpu_time"]
+                        / group_df.loc[size, "cpu_time"]
                     )
                 else:
                     speedups.append(None)
@@ -167,12 +192,12 @@ def build_speedup_report(df: pd.DataFrame, baseline: str) -> go.Figure:
                 go.Bar(
                     x=[str(s) for s in sizes],
                     y=speedups,
-                    name=typ,
-                    legendgroup=typ,
+                    name=group,
+                    legendgroup=group,
                     showlegend=(i == 1),
                     marker_color=COLORS[j % len(COLORS)],
                     hovertemplate=(
-                        f"<b>{typ}</b><br>"
+                        f"<b>{group}</b><br>"
                         f"N=%{{x}}<br>"
                         f"speedup: %{{y:.2f}}x<br>"
                         "<extra></extra>"
@@ -376,6 +401,48 @@ def build_heatmap_report(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def add_filter_args(parser: argparse.ArgumentParser):
+    """Add --load and --impl filter flags to a subparser."""
+    parser.add_argument(
+        "--load", default=None,
+        help="Filter to a specific load factor (e.g. 0.75). Lines grouped by impl."
+    )
+    parser.add_argument(
+        "--impl", default=None,
+        help="Filter to a specific implementation (e.g. RobinHoodHashMap). Lines grouped by load."
+    )
+
+
+def apply_filters(df: pd.DataFrame, args) -> tuple[pd.DataFrame, str]:
+    """Apply --load and --impl filters. Returns (filtered_df, group_by_column).
+
+    --load: filter to rows with that load, group by impl
+    --impl: filter to rows with that impl, group by load
+    Neither: group by type (original behavior)
+    """
+    if args.load and args.impl:
+        print("Error: --load and --impl are mutually exclusive.", file=sys.stderr)
+        sys.exit(1)
+
+    if args.load:
+        df = df[df["load"] == args.load]
+        if df.empty:
+            available = sorted(df["load"].unique()) if not df.empty else []
+            print(f"Error: no data for --load {args.load}. Available: {available}",
+                  file=sys.stderr)
+            sys.exit(1)
+        return df, "impl"
+
+    if args.impl:
+        df = df[df["impl"] == args.impl]
+        if df.empty:
+            print(f"Error: no data for --impl {args.impl}.", file=sys.stderr)
+            sys.exit(1)
+        return df, "load"
+
+    return df, "type"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate plotly reports from Google Benchmark CSV output."
@@ -384,6 +451,7 @@ def main():
 
     raw_parser = subparsers.add_parser("raw", help="Raw CPU time report")
     raw_parser.add_argument("csvs", nargs="+", help="Google Benchmark CSV files")
+    add_filter_args(raw_parser)
 
     speedup_parser = subparsers.add_parser(
         "speedup", help="Speedup report relative to a baseline type"
@@ -391,8 +459,9 @@ def main():
     speedup_parser.add_argument("csvs", nargs="+", help="Google Benchmark CSV files")
     speedup_parser.add_argument(
         "--baseline-type", required=True,
-        help="Type to use as the 1.0x baseline"
+        help="Baseline for 1.0x comparison (matches type, impl, or load depending on filters)"
     )
+    add_filter_args(speedup_parser)
 
     density_parser = subparsers.add_parser(
         "density", help="CPU time vs density for two-parameter benchmarks (BM_Algo/n/density)"
@@ -414,23 +483,27 @@ def main():
 
     if args.mode == "raw":
         df = load_csvs(args.csvs)
-        fig = build_raw_report(df)
-        out = f"{stem}_raw.html"
+        df, group_by = apply_filters(df, args)
+        fig = build_raw_report(df, group_by)
+        suffix = f"_load{args.load}" if args.load else (f"_{args.impl}" if args.impl else "")
+        out = f"{stem}_raw{suffix}.html"
         fig.write_html(out)
         print(f"Report written to {out}")
 
     elif args.mode == "speedup":
         df = load_csvs(args.csvs)
-        types = list(df["type"].unique())
-        if args.baseline_type not in types:
+        df, group_by = apply_filters(df, args)
+        groups = list(df[group_by].unique())
+        if args.baseline_type not in groups:
             print(
-                f"Error: '{args.baseline_type}' not found. "
-                f"Available types: {', '.join(types)}",
+                f"Error: '{args.baseline_type}' not found in {group_by} column. "
+                f"Available: {', '.join(str(g) for g in groups)}",
                 file=sys.stderr,
             )
             sys.exit(1)
-        fig = build_speedup_report(df, args.baseline_type)
-        out = f"{stem}_speedup.html"
+        fig = build_speedup_report(df, args.baseline_type, group_by)
+        suffix = f"_load{args.load}" if args.load else (f"_{args.impl}" if args.impl else "")
+        out = f"{stem}_speedup{suffix}.html"
         fig.write_html(out)
         print(f"Report written to {out}")
 
