@@ -1,12 +1,13 @@
 #include "chaining_hash_map.hpp"
 #include "linear_probing_hash_map.hpp"
+#include "robin_hood_hash_map.hpp"
 
 #include <gtest/gtest.h>
 
 template <typename T> class HashMapTest : public ::testing::Test {};
 
 using HashMapTypes =
-    ::testing::Types<ChainingHashMap, LinearProbingHashMap>;
+    ::testing::Types<ChainingHashMap, LinearProbingHashMap, RobinHoodHashMap>;
 TYPED_TEST_SUITE(HashMapTest, HashMapTypes);
 
 // --- Basic operations ---
