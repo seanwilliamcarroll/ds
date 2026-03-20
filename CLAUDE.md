@@ -48,7 +48,14 @@ CMakeLists.txt in each `src/` registers tests with `add_test()`.
 - **Linting:** `.clang-tidy` runs on pre-push (excludes `_test.cpp` and `_bench.cpp`).
 - **Braces:** always required for control flow — no braceless if/for/while.
 - **No end-of-line comments.**
-- **Naming:** `camelCase` functions, `PascalCase` classes/templates, `snake_case_` private members with trailing underscore.
+- **Naming:**
+  - Classes/structs: `UpperCamelCase`
+  - Functions/methods: `snake_case`
+  - Variables and member variables: `snake_case` (private members with trailing underscore `snake_case_`)
+  - Template parameters: `UpperCamelCase`
+  - Enums: `UpperCamelCase::UPPERCASE_ENTRIES`
+  - Constants/constexpr: `UPPERCASE`
+  - Type aliases: `UpperCamelCase` (always `using`, never `typedef`)
 - **Headers:** `#pragma once`, header-only with `inline` or templates.
 - **Casts:** explicit `static_cast<>` for narrowing/sign conversions (project compiles with `-Wconversion`).
 

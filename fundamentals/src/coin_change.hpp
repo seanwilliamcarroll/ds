@@ -41,7 +41,7 @@
 //   Time:  O(amount * coins.size())
 //   Space: O(amount)
 
-inline int coinChange(const std::vector<int> &coins, int amount) {
+inline int coin_change(const std::vector<int> &coins, int amount) {
   const auto amount_index = static_cast<size_t>(amount);
   std::vector<int> coins_needed(amount_index + 1, amount + 1);
   coins_needed[0] = 0;

@@ -53,7 +53,7 @@ struct Node {
       : val(val), neighbors(std::move(neighbors)) {}
 };
 
-inline Node *cloneGraph(Node *node) {
+inline Node *clone_graph(Node *node) {
   if (node == nullptr) {
     return nullptr;
   }

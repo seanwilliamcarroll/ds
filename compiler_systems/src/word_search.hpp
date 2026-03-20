@@ -48,8 +48,8 @@ constexpr size_t MAX_COLS = 12;
 
 template <typename TrieType>
 inline std::vector<std::string>
-findWords(std::vector<std::vector<char>> &board,
-          const std::vector<std::string> &words) {
+find_words(std::vector<std::vector<char>> &board,
+           const std::vector<std::string> &words) {
   // Load all the words into a Trie for fast lookup
 
   // For each position on the board, check if the that character is a prefix

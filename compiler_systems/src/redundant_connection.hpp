@@ -12,7 +12,7 @@
 // Edges are 1-indexed: {{1,2}, {2,3}, ...}
 // Returns the redundant edge as a pair.
 inline std::pair<int, int>
-findRedundantConnection(const std::vector<std::pair<int, int>> &edges) {
+find_redundant_connection(const std::vector<std::pair<int, int>> &edges) {
   using UF = UnionFind<true, true>;
   int max_edge = 0;
   for (const auto &[node_a, node_b] : edges) {

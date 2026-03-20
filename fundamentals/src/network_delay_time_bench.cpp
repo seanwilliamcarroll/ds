@@ -66,7 +66,7 @@ static void BM_SPFA(benchmark::State &state) {
     state.PauseTiming();
     auto edges = makeGraph(n, density_pct, rng);
     state.ResumeTiming();
-    benchmark::DoNotOptimize(networkDelayTimeSPFA(edges, n, 1));
+    benchmark::DoNotOptimize(network_delay_time_spfa(edges, n, 1));
   }
 }
 
@@ -81,7 +81,7 @@ static void BM_Dijkstra(benchmark::State &state) {
     state.PauseTiming();
     auto edges = makeGraph(n, density_pct, rng);
     state.ResumeTiming();
-    benchmark::DoNotOptimize(networkDelayTimeDijkstra(edges, n, 1));
+    benchmark::DoNotOptimize(network_delay_time_dijkstra(edges, n, 1));
   }
 }
 

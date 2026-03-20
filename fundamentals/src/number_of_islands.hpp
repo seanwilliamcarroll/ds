@@ -32,7 +32,7 @@
 //   - 1 <= m, n <= 300
 //   - grid[i][j] is '0' or '1'
 
-inline int numIslands(std::vector<std::vector<char>> &grid) {
+inline int num_islands(std::vector<std::vector<char>> &grid) {
 
   constexpr char LAND = '1';
   constexpr char WATER = '0';

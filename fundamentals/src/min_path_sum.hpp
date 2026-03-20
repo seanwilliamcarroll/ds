@@ -30,7 +30,7 @@
 //   - 1 <= m, n <= 200
 //   - 0 <= grid[i][j] <= 200
 
-inline int minPathSum(const std::vector<std::vector<int>> &grid) {
+inline int min_path_sum(const std::vector<std::vector<int>> &grid) {
   std::vector<std::vector<int>> min_path_to_position(
       grid.size(),
       std::vector<int>(grid.front().size(), std::numeric_limits<int>::max()));

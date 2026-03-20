@@ -108,11 +108,11 @@ static void verifyClone(Node *original, Node *clone) {
   }
 }
 
-TEST(CloneGraph, NullInput) { EXPECT_EQ(cloneGraph(nullptr), nullptr); }
+TEST(CloneGraph, NullInput) { EXPECT_EQ(clone_graph(nullptr), nullptr); }
 
 TEST(CloneGraph, SingleNode) {
   Node *original = buildGraph({{}});
-  Node *clone = cloneGraph(original);
+  Node *clone = clone_graph(original);
   verifyClone(original, clone);
   freeGraph(original);
   freeGraph(clone);
@@ -123,7 +123,7 @@ TEST(CloneGraph, LeetCodeExample1) {
   // |  |
   // 4--3
   Node *original = buildGraph({{2, 4}, {1, 3}, {2, 4}, {1, 3}});
-  Node *clone = cloneGraph(original);
+  Node *clone = clone_graph(original);
   verifyClone(original, clone);
   freeGraph(original);
   freeGraph(clone);
@@ -132,7 +132,7 @@ TEST(CloneGraph, LeetCodeExample1) {
 TEST(CloneGraph, TwoNodes) {
   // 1--2
   Node *original = buildGraph({{2}, {1}});
-  Node *clone = cloneGraph(original);
+  Node *clone = clone_graph(original);
   verifyClone(original, clone);
   freeGraph(original);
   freeGraph(clone);
@@ -141,7 +141,7 @@ TEST(CloneGraph, TwoNodes) {
 TEST(CloneGraph, LinearChain) {
   // 1--2--3--4--5
   Node *original = buildGraph({{2}, {1, 3}, {2, 4}, {3, 5}, {4}});
-  Node *clone = cloneGraph(original);
+  Node *clone = clone_graph(original);
   verifyClone(original, clone);
   freeGraph(original);
   freeGraph(clone);
@@ -150,7 +150,7 @@ TEST(CloneGraph, LinearChain) {
 TEST(CloneGraph, FullyConnected) {
   // Every node connects to every other node
   Node *original = buildGraph({{2, 3, 4}, {1, 3, 4}, {1, 2, 4}, {1, 2, 3}});
-  Node *clone = cloneGraph(original);
+  Node *clone = clone_graph(original);
   verifyClone(original, clone);
   freeGraph(original);
   freeGraph(clone);
@@ -159,7 +159,7 @@ TEST(CloneGraph, FullyConnected) {
 TEST(CloneGraph, StarTopology) {
   // Node 1 connects to all others; others only connect to 1
   Node *original = buildGraph({{2, 3, 4, 5}, {1}, {1}, {1}, {1}});
-  Node *clone = cloneGraph(original);
+  Node *clone = clone_graph(original);
   verifyClone(original, clone);
   freeGraph(original);
   freeGraph(clone);

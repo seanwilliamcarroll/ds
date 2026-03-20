@@ -26,8 +26,8 @@
 //   - 1 <= text1.length, text2.length <= 1000
 //   - text1 and text2 consist of only lowercase English characters
 
-inline int longestCommonSubsequence(const std::string &text1,
-                                    const std::string &text2) {
+inline int longest_common_subsequence(const std::string &text1,
+                                      const std::string &text2) {
 
   std::vector<size_t> lcs_current_row(text2.size() + 1, 0);
   std::vector<size_t> lcs_last_row(text2.size() + 1, 0);

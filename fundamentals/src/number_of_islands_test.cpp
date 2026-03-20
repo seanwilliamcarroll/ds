@@ -9,7 +9,7 @@ TEST(NumberOfIslands, LeetCodeExample1) {
       {'1', '1', '0', '0', '0'},
       {'0', '0', '0', '0', '0'},
   };
-  EXPECT_EQ(numIslands(grid), 1);
+  EXPECT_EQ(num_islands(grid), 1);
 }
 
 TEST(NumberOfIslands, LeetCodeExample2) {
@@ -19,7 +19,7 @@ TEST(NumberOfIslands, LeetCodeExample2) {
       {'0', '0', '1', '0', '0'},
       {'0', '0', '0', '1', '1'},
   };
-  EXPECT_EQ(numIslands(grid), 3);
+  EXPECT_EQ(num_islands(grid), 3);
 }
 
 TEST(NumberOfIslands, AllWater) {
@@ -28,7 +28,7 @@ TEST(NumberOfIslands, AllWater) {
       {'0', '0', '0'},
       {'0', '0', '0'},
   };
-  EXPECT_EQ(numIslands(grid), 0);
+  EXPECT_EQ(num_islands(grid), 0);
 }
 
 TEST(NumberOfIslands, AllLand) {
@@ -37,25 +37,25 @@ TEST(NumberOfIslands, AllLand) {
       {'1', '1', '1'},
       {'1', '1', '1'},
   };
-  EXPECT_EQ(numIslands(grid), 1);
+  EXPECT_EQ(num_islands(grid), 1);
 }
 
 TEST(NumberOfIslands, SingleCell) {
   std::vector<std::vector<char>> land = {{'1'}};
-  EXPECT_EQ(numIslands(land), 1);
+  EXPECT_EQ(num_islands(land), 1);
 
   std::vector<std::vector<char>> water = {{'0'}};
-  EXPECT_EQ(numIslands(water), 0);
+  EXPECT_EQ(num_islands(water), 0);
 }
 
 TEST(NumberOfIslands, SingleRow) {
   std::vector<std::vector<char>> grid = {{'1', '0', '1', '0', '1'}};
-  EXPECT_EQ(numIslands(grid), 3);
+  EXPECT_EQ(num_islands(grid), 3);
 }
 
 TEST(NumberOfIslands, SingleColumn) {
   std::vector<std::vector<char>> grid = {{'1'}, {'0'}, {'1'}, {'0'}, {'1'}};
-  EXPECT_EQ(numIslands(grid), 3);
+  EXPECT_EQ(num_islands(grid), 3);
 }
 
 TEST(NumberOfIslands, DiagonalNotConnected) {
@@ -65,7 +65,7 @@ TEST(NumberOfIslands, DiagonalNotConnected) {
       {'0', '1', '0'},
       {'0', '0', '1'},
   };
-  EXPECT_EQ(numIslands(grid), 3);
+  EXPECT_EQ(num_islands(grid), 3);
 }
 
 TEST(NumberOfIslands, LShapedIsland) {
@@ -74,7 +74,7 @@ TEST(NumberOfIslands, LShapedIsland) {
       {'1', '0', '0'},
       {'1', '1', '1'},
   };
-  EXPECT_EQ(numIslands(grid), 1);
+  EXPECT_EQ(num_islands(grid), 1);
 }
 
 TEST(NumberOfIslands, IslandsWithNarrowChannels) {
@@ -83,5 +83,5 @@ TEST(NumberOfIslands, IslandsWithNarrowChannels) {
       {'1', '1', '0', '1', '1'},
       {'1', '1', '0', '1', '1'},
   };
-  EXPECT_EQ(numIslands(grid), 2);
+  EXPECT_EQ(num_islands(grid), 2);
 }

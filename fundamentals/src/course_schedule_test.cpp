@@ -6,40 +6,41 @@
 
 #include <gtest/gtest.h>
 
-// ── canFinish ────────────────────────────────────────────────────────────────
+// ── can_finish
+// ────────────────────────────────────────────────────────────────
 
 TEST(CourseSchedule, CanFinish_NoCycles) {
   // 0 -> 1
   std::vector<std::vector<int>> prereqs = {{1, 0}};
-  EXPECT_TRUE(canFinish(2, prereqs));
+  EXPECT_TRUE(can_finish(2, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_SimpleCycle) {
   // 0 -> 1 -> 0
   std::vector<std::vector<int>> prereqs = {{1, 0}, {0, 1}};
-  EXPECT_FALSE(canFinish(2, prereqs));
+  EXPECT_FALSE(can_finish(2, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_NoPrerequisites) {
   std::vector<std::vector<int>> prereqs = {};
-  EXPECT_TRUE(canFinish(5, prereqs));
+  EXPECT_TRUE(can_finish(5, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_SingleCourse) {
   std::vector<std::vector<int>> prereqs = {};
-  EXPECT_TRUE(canFinish(1, prereqs));
+  EXPECT_TRUE(can_finish(1, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_LinearChain) {
   // 0 -> 1 -> 2 -> 3
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {3, 2}};
-  EXPECT_TRUE(canFinish(4, prereqs));
+  EXPECT_TRUE(can_finish(4, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_CycleInLargerGraph) {
   // 0 -> 1 -> 2 -> 1 (cycle between 1 and 2)
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {1, 2}};
-  EXPECT_FALSE(canFinish(3, prereqs));
+  EXPECT_FALSE(can_finish(3, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_DiamondNoCycle) {
@@ -49,50 +50,50 @@ TEST(CourseSchedule, CanFinish_DiamondNoCycle) {
   //    \ /
   //     3
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 1}, {3, 2}};
-  EXPECT_TRUE(canFinish(4, prereqs));
+  EXPECT_TRUE(can_finish(4, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_DisconnectedNoCycle) {
   // Two independent chains: 0->1, 2->3
   std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}};
-  EXPECT_TRUE(canFinish(4, prereqs));
+  EXPECT_TRUE(can_finish(4, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_ConvergingPaths) {
   // Two paths both leading to node 1: 0->1, 0->2->1 (no cycle)
   std::vector<std::vector<int>> prereqs = {{0, 1}, {0, 2}, {2, 1}};
-  EXPECT_TRUE(canFinish(3, prereqs));
+  EXPECT_TRUE(can_finish(3, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_ConvergingPathsWithChild) {
   // Same as above but node 1 has a child (3): 0->1->3, 0->2->1 (no cycle)
   std::vector<std::vector<int>> prereqs = {{0, 1}, {0, 2}, {2, 1}, {1, 3}};
-  EXPECT_TRUE(canFinish(4, prereqs));
+  EXPECT_TRUE(can_finish(4, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_LongCycle) {
   // Cycle spanning many nodes: 0->1->2->3->4->0
   std::vector<std::vector<int>> prereqs = {
       {1, 0}, {2, 1}, {3, 2}, {4, 3}, {0, 4}};
-  EXPECT_FALSE(canFinish(5, prereqs));
+  EXPECT_FALSE(can_finish(5, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_CycleNotReachableFromStart) {
   // Nodes 0 and 1 are fine; nodes 2 and 3 form a cycle independent of 0/1
   std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}, {2, 3}};
-  EXPECT_FALSE(canFinish(4, prereqs));
+  EXPECT_FALSE(can_finish(4, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_SelfLoop) {
   // A course that requires itself
   std::vector<std::vector<int>> prereqs = {{0, 0}};
-  EXPECT_FALSE(canFinish(1, prereqs));
+  EXPECT_FALSE(can_finish(1, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_StarTopology) {
   // All courses require course 0; no cycles
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 0}, {4, 0}};
-  EXPECT_TRUE(canFinish(5, prereqs));
+  EXPECT_TRUE(can_finish(5, prereqs));
 }
 
 TEST(CourseSchedule, CanFinish_MaximalDAG) {
@@ -101,10 +102,11 @@ TEST(CourseSchedule, CanFinish_MaximalDAG) {
   for (int i = 1; i < 10; ++i) {
     prereqs.push_back({i, i - 1});
   }
-  EXPECT_TRUE(canFinish(10, prereqs));
+  EXPECT_TRUE(can_finish(10, prereqs));
 }
 
-// ── findOrder ────────────────────────────────────────────────────────────────
+// ── find_order
+// ────────────────────────────────────────────────────────────────
 
 // Verify that the returned order is a valid topological sort:
 // - contains every course exactly once
@@ -138,13 +140,13 @@ static void verifyOrder(int numCourses,
 
 TEST(CourseSchedule, FindOrder_NoCourses) {
   std::vector<std::vector<int>> prereqs = {};
-  auto order = findOrder(0, prereqs);
+  auto order = find_order(0, prereqs);
   EXPECT_TRUE(order.empty());
 }
 
 TEST(CourseSchedule, FindOrder_SingleCourse) {
   std::vector<std::vector<int>> prereqs = {};
-  auto order = findOrder(1, prereqs);
+  auto order = find_order(1, prereqs);
   ASSERT_EQ(order.size(), 1U);
   EXPECT_EQ(order[0], 0);
 }
@@ -152,39 +154,39 @@ TEST(CourseSchedule, FindOrder_SingleCourse) {
 TEST(CourseSchedule, FindOrder_LeetCodeExample1) {
   // [1,0] -> take 0 before 1
   std::vector<std::vector<int>> prereqs = {{1, 0}};
-  auto order = findOrder(2, prereqs);
+  auto order = find_order(2, prereqs);
   verifyOrder(2, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_LeetCodeExample2) {
   // [[1,0],[2,0],[3,1],[3,2]]
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 1}, {3, 2}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   verifyOrder(4, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_HasCycle) {
   std::vector<std::vector<int>> prereqs = {{1, 0}, {0, 1}};
-  auto order = findOrder(2, prereqs);
+  auto order = find_order(2, prereqs);
   EXPECT_TRUE(order.empty());
 }
 
 TEST(CourseSchedule, FindOrder_NoPrerequisites) {
   std::vector<std::vector<int>> prereqs = {};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   verifyOrder(4, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_LinearChain) {
   // 3 requires 2 requires 1 requires 0
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {3, 2}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   verifyOrder(4, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_CycleInLargerGraph) {
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {1, 2}};
-  auto order = findOrder(3, prereqs);
+  auto order = find_order(3, prereqs);
   EXPECT_TRUE(order.empty());
 }
 
@@ -195,34 +197,34 @@ TEST(CourseSchedule, FindOrder_DiamondShape) {
   //    \ /
   //     3
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 1}, {3, 2}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   verifyOrder(4, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_DisconnectedGraph) {
   // Two independent chains: 0->1 and 2->3
   std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   verifyOrder(4, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_ConvergingPaths) {
   // 0->1->3, 0->2->1 (no cycle, two paths to 1)
   std::vector<std::vector<int>> prereqs = {{0, 1}, {0, 2}, {2, 1}, {1, 3}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   verifyOrder(4, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_LongCycle) {
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 1}, {3, 2}, {0, 3}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   EXPECT_TRUE(order.empty());
 }
 
 TEST(CourseSchedule, FindOrder_StarTopology) {
   // All courses require course 0
   std::vector<std::vector<int>> prereqs = {{1, 0}, {2, 0}, {3, 0}, {4, 0}};
-  auto order = findOrder(5, prereqs);
+  auto order = find_order(5, prereqs);
   verifyOrder(5, prereqs, order);
 }
 
@@ -231,13 +233,13 @@ TEST(CourseSchedule, FindOrder_LongChain) {
   for (int i = 1; i < 10; ++i) {
     prereqs.push_back({i, i - 1});
   }
-  auto order = findOrder(10, prereqs);
+  auto order = find_order(10, prereqs);
   verifyOrder(10, prereqs, order);
 }
 
 TEST(CourseSchedule, FindOrder_CycleNotReachableFromStart) {
   // Nodes 2 and 3 form a cycle; should still return empty
   std::vector<std::vector<int>> prereqs = {{1, 0}, {3, 2}, {2, 3}};
-  auto order = findOrder(4, prereqs);
+  auto order = find_order(4, prereqs);
   EXPECT_TRUE(order.empty());
 }

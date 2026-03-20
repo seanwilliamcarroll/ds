@@ -29,7 +29,7 @@
 //   - 1 <= s.length <= 1000
 //   - s consists of only digits and English letters
 
-inline std::string longestPalindrome(const std::string &s) {
+inline std::string longest_palindrome(const std::string &s) {
   std::string longest_palindrome{s[0]};
   // Come back to the actual palindrome returned
   if (s.size() == 1) {

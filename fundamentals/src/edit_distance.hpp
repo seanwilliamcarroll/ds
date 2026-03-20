@@ -33,7 +33,7 @@
 //   - 0 <= word1.length, word2.length <= 500
 //   - word1 and word2 consist of lowercase English letters
 
-inline int minDistance(const std::string &word1, const std::string &word2) {
+inline int min_distance(const std::string &word1, const std::string &word2) {
 
   std::vector<std::vector<size_t>> min_distance_so_far(
       word1.size() + 1, std::vector<size_t>(word2.size() + 1, 0));

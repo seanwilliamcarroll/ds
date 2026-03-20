@@ -139,7 +139,7 @@ BENCHMARK(BM_InsertSparse<PtrTrie>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_SearchHitDense<PtrTrie>)->Range(1 << 8, 1 << 16);
 BENCHMARK(BM_SearchMiss<PtrTrie>)->Range(1 << 8, 1 << 16);
 
-// --- getWordsWithPrefix benchmarks ---
+// --- get_words_with_prefix benchmarks ---
 
 template <typename T>
 static void BM_GetWordsWithPrefix(benchmark::State &state) {
@@ -151,7 +151,7 @@ static void BM_GetWordsWithPrefix(benchmark::State &state) {
   }
 
   for (auto _ : state) {
-    benchmark::DoNotOptimize(trie.getWordsWithPrefix("aaa"));
+    benchmark::DoNotOptimize(trie.get_words_with_prefix("aaa"));
   }
 }
 

@@ -19,7 +19,7 @@ TYPED_TEST_SUITE(TrieTest, TrieTypes);
 TYPED_TEST(TrieTest, SearchEmptyTrie) {
   TypeParam trie;
   EXPECT_FALSE(trie.search("hello"));
-  EXPECT_FALSE(trie.startsWith("h"));
+  EXPECT_FALSE(trie.starts_with("h"));
 }
 
 TYPED_TEST(TrieTest, InsertAndSearch) {
@@ -34,7 +34,7 @@ TYPED_TEST(TrieTest, PrefixIsNotAWord) {
   TypeParam trie;
   trie.insert("apple");
   EXPECT_FALSE(trie.search("app"));
-  EXPECT_TRUE(trie.startsWith("app"));
+  EXPECT_TRUE(trie.starts_with("app"));
 }
 
 TYPED_TEST(TrieTest, WordThatIsAPrefixOfAnother) {
@@ -50,16 +50,16 @@ TYPED_TEST(TrieTest, StartsWithExisting) {
   TypeParam trie;
   trie.insert("apple");
   trie.insert("application");
-  EXPECT_TRUE(trie.startsWith("app"));
-  EXPECT_TRUE(trie.startsWith("apple"));
-  EXPECT_TRUE(trie.startsWith("applic"));
+  EXPECT_TRUE(trie.starts_with("app"));
+  EXPECT_TRUE(trie.starts_with("apple"));
+  EXPECT_TRUE(trie.starts_with("applic"));
 }
 
 TYPED_TEST(TrieTest, StartsWithNonExisting) {
   TypeParam trie;
   trie.insert("apple");
-  EXPECT_FALSE(trie.startsWith("b"));
-  EXPECT_FALSE(trie.startsWith("apc"));
+  EXPECT_FALSE(trie.starts_with("b"));
+  EXPECT_FALSE(trie.starts_with("apc"));
 }
 
 TYPED_TEST(TrieTest, MultipleWordsDisjointPrefixes) {
@@ -77,20 +77,20 @@ TYPED_TEST(TrieTest, EmptyString) {
   TypeParam trie;
   trie.insert("");
   EXPECT_TRUE(trie.search(""));
-  EXPECT_TRUE(trie.startsWith(""));
+  EXPECT_TRUE(trie.starts_with(""));
 }
 
 TYPED_TEST(TrieTest, EmptyPrefixOnEmptyTrie) {
   // Every trie starts with the empty prefix
   TypeParam trie;
-  EXPECT_TRUE(trie.startsWith(""));
+  EXPECT_TRUE(trie.starts_with(""));
 }
 
 TYPED_TEST(TrieTest, SearchFullWordAsPrefix) {
-  // startsWith should return true when the prefix is an exact word
+  // starts_with should return true when the prefix is an exact word
   TypeParam trie;
   trie.insert("hello");
-  EXPECT_TRUE(trie.startsWith("hello"));
+  EXPECT_TRUE(trie.starts_with("hello"));
 }
 
 // --- remove tests ---
@@ -137,7 +137,7 @@ TYPED_TEST(TrieTest, RemovePrefixThatIsNotAWord) {
   EXPECT_TRUE(trie.search("apple"));
 }
 
-// --- getWordsWithPrefix tests ---
+// --- get_words_with_prefix tests ---
 
 TYPED_TEST(TrieTest, GetWordsWithPrefix) {
   TypeParam trie;
@@ -146,7 +146,7 @@ TYPED_TEST(TrieTest, GetWordsWithPrefix) {
   trie.insert("application");
   trie.insert("bed");
 
-  auto words = trie.getWordsWithPrefix("app");
+  auto words = trie.get_words_with_prefix("app");
   std::sort(words.begin(), words.end());
 
   std::vector<std::string> expected = {"app", "apple", "application"};
@@ -156,7 +156,7 @@ TYPED_TEST(TrieTest, GetWordsWithPrefix) {
 TYPED_TEST(TrieTest, GetWordsWithPrefixNoMatches) {
   TypeParam trie;
   trie.insert("apple");
-  auto words = trie.getWordsWithPrefix("z");
+  auto words = trie.get_words_with_prefix("z");
   EXPECT_TRUE(words.empty());
 }
 
@@ -166,7 +166,7 @@ TYPED_TEST(TrieTest, GetWordsWithEmptyPrefix) {
   trie.insert("apple");
   trie.insert("bed");
 
-  auto words = trie.getWordsWithPrefix("");
+  auto words = trie.get_words_with_prefix("");
   std::sort(words.begin(), words.end());
 
   std::vector<std::string> expected = {"apple", "bed"};
@@ -177,6 +177,6 @@ TYPED_TEST(TrieTest, GetWordsWithExactWordAsPrefix) {
   // The prefix itself is a stored word
   TypeParam trie;
   trie.insert("apple");
-  auto words = trie.getWordsWithPrefix("apple");
+  auto words = trie.get_words_with_prefix("apple");
   EXPECT_EQ(words, std::vector<std::string>{"apple"});
 }

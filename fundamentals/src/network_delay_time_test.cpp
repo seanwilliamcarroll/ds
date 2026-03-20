@@ -9,13 +9,13 @@
 
 struct SPFASolver {
   static int solve(std::vector<std::vector<int>> &times, int n, int k) {
-    return networkDelayTimeSPFA(times, n, k);
+    return network_delay_time_spfa(times, n, k);
   }
 };
 
 struct DijkstraSolver {
   static int solve(std::vector<std::vector<int>> &times, int n, int k) {
-    return networkDelayTimeDijkstra(times, n, k);
+    return network_delay_time_dijkstra(times, n, k);
   }
 };
 

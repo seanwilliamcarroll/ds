@@ -83,7 +83,7 @@ public:
     return final_node->is_end_of_word;
   }
 
-  [[nodiscard]] bool startsWith(const std::string &prefix) const {
+  [[nodiscard]] bool starts_with(const std::string &prefix) const {
     return find_last_node(prefix) != nullptr;
   }
 
@@ -121,7 +121,7 @@ public:
   }
 
   [[nodiscard]] std::vector<std::string>
-  getWordsWithPrefix(const std::string &prefix) const {
+  get_words_with_prefix(const std::string &prefix) const {
     const Node *end_of_prefix = find_last_node(prefix);
     if (end_of_prefix == nullptr) {
       return {};

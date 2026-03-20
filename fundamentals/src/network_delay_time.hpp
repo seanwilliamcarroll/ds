@@ -45,8 +45,8 @@
 
 // SPFA (Shortest Path Faster Algorithm): BFS with re-enqueue on improvement.
 // Correct but may visit nodes multiple times. O(V * E) worst case.
-inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
-                                int k) {
+inline int network_delay_time_spfa(std::vector<std::vector<int>> &times, int n,
+                                   int k) {
 
   // We should build an adjacency list, keeping the weights in mind
   // Should keep a vector of minimum time it takes to reach that node starting
@@ -100,8 +100,8 @@ inline int networkDelayTimeSPFA(std::vector<std::vector<int>> &times, int n,
 
 // Dijkstra: always expand the globally cheapest unvisited node using a
 // min-heap. Each node settled exactly once. O((V + E) log V).
-inline int networkDelayTimeDijkstra(std::vector<std::vector<int>> &times, int n,
-                                    int k) {
+inline int network_delay_time_dijkstra(std::vector<std::vector<int>> &times,
+                                       int n, int k) {
 
   std::unordered_map<int, std::vector<std::pair<int, int>>> node_to_neighbors;
 

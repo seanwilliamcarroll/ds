@@ -3,27 +3,27 @@
 #include <gtest/gtest.h>
 
 TEST(MinPathSum, LeetCodeExample1) {
-  EXPECT_EQ(minPathSum({{1, 3, 1}, {1, 5, 1}, {4, 2, 1}}), 7);
+  EXPECT_EQ(min_path_sum({{1, 3, 1}, {1, 5, 1}, {4, 2, 1}}), 7);
 }
 
 TEST(MinPathSum, LeetCodeExample2) {
-  EXPECT_EQ(minPathSum({{1, 2, 3}, {4, 5, 6}}), 12);
+  EXPECT_EQ(min_path_sum({{1, 2, 3}, {4, 5, 6}}), 12);
 }
 
-TEST(MinPathSum, SingleCell) { EXPECT_EQ(minPathSum({{5}}), 5); }
+TEST(MinPathSum, SingleCell) { EXPECT_EQ(min_path_sum({{5}}), 5); }
 
 TEST(MinPathSum, SingleRow) {
   // Only one path: right, right, right
-  EXPECT_EQ(minPathSum({{1, 2, 3, 4}}), 10);
+  EXPECT_EQ(min_path_sum({{1, 2, 3, 4}}), 10);
 }
 
 TEST(MinPathSum, SingleColumn) {
   // Only one path: down, down, down
-  EXPECT_EQ(minPathSum({{1}, {2}, {3}, {4}}), 10);
+  EXPECT_EQ(min_path_sum({{1}, {2}, {3}, {4}}), 10);
 }
 
 TEST(MinPathSum, AllZeros) {
-  EXPECT_EQ(minPathSum({{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}), 0);
+  EXPECT_EQ(min_path_sum({{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}), 0);
 }
 
 TEST(MinPathSum, PreferDownThenRight) {
@@ -32,7 +32,7 @@ TEST(MinPathSum, PreferDownThenRight) {
   //   1    1    1
   //   1    1    1
   // Best path: down, down, right, right = 1+1+1+1+1 = 5
-  EXPECT_EQ(minPathSum({{1, 100, 100}, {1, 1, 1}, {1, 1, 1}}), 5);
+  EXPECT_EQ(min_path_sum({{1, 100, 100}, {1, 1, 1}, {1, 1, 1}}), 5);
 }
 
 TEST(MinPathSum, PreferRightThenDown) {
@@ -41,7 +41,7 @@ TEST(MinPathSum, PreferRightThenDown) {
   //   100  1    1
   //   100  1    1
   // Best path: right, right, down, down = 1+1+1+1+1 = 5
-  EXPECT_EQ(minPathSum({{1, 1, 1}, {100, 1, 1}, {100, 1, 1}}), 5);
+  EXPECT_EQ(min_path_sum({{1, 1, 1}, {100, 1, 1}, {100, 1, 1}}), 5);
 }
 
 TEST(MinPathSum, LargerGrid) {
@@ -52,7 +52,7 @@ TEST(MinPathSum, LargerGrid) {
   };
   // (0,0)=1 -> (0,1)=3 -> (1,1)=1 -> (2,1)=2 -> (2,2)=1 ->
   // (2,3)=1 -> (3,3)=1 -> (4,3)=1 -> (4,4)=1 = 11
-  EXPECT_EQ(minPathSum(grid), 11);
+  EXPECT_EQ(min_path_sum(grid), 11);
 }
 
 TEST(MinPathSum, ExpensiveCenter) {
@@ -63,7 +63,7 @@ TEST(MinPathSum, ExpensiveCenter) {
   //   1   1   1   1
   // Top path: right,right,right,down,down,down = 1+1+1+1+1+1+1 = 7
   // Bottom path: down,down,down,right,right,right = 1+1+1+1+1+1+1 = 7
-  EXPECT_EQ(
-      minPathSum({{1, 1, 1, 1}, {1, 99, 99, 1}, {1, 99, 99, 1}, {1, 1, 1, 1}}),
-      7);
+  EXPECT_EQ(min_path_sum(
+                {{1, 1, 1, 1}, {1, 99, 99, 1}, {1, 99, 99, 1}, {1, 1, 1, 1}}),
+            7);
 }

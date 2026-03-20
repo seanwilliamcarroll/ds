@@ -32,8 +32,8 @@
 //   - 0 <= a_i, b_i < numCourses
 //   - All the pairs prerequisites[i] are unique
 
-inline bool canFinish(int numCourses,
-                      std::vector<std::vector<int>> &prerequisites) {
+inline bool can_finish(int numCourses,
+                       std::vector<std::vector<int>> &prerequisites) {
 
   std::unordered_map<int, std::vector<int>> node_to_children;
 
@@ -129,7 +129,7 @@ inline bool canFinish(int numCourses,
 //   - All the pairs [a_i, b_i] are distinct
 
 inline std::vector<int>
-findOrder(int numCourses, std::vector<std::vector<int>> &prerequisites) {
+find_order(int numCourses, std::vector<std::vector<int>> &prerequisites) {
 
   std::unordered_map<int, std::vector<int>> node_to_children;
 
