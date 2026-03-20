@@ -121,7 +121,7 @@ def build_raw_report(df: pd.DataFrame) -> go.Figure:
         height=350 * n,
         title_text="Benchmark Report — Raw CPU Times",
         template="plotly_white",
-        hovermode="x unified",
+        hovermode="closest",
     )
 
     return fig
@@ -259,7 +259,7 @@ def build_density_report(df: pd.DataFrame) -> go.Figure:
         height=300 * n_rows,
         title_text="SPFA vs Dijkstra — CPU time by density",
         template="plotly_white",
-        hovermode="x unified",
+        hovermode="closest",
     )
 
     return fig
@@ -312,7 +312,7 @@ def build_by_n_report(df: pd.DataFrame) -> go.Figure:
         height=300 * n_rows,
         title_text="SPFA vs Dijkstra — CPU time by n",
         template="plotly_white",
-        hovermode="x unified",
+        hovermode="closest",
     )
 
     return fig
