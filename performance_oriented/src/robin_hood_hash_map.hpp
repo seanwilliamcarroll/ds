@@ -35,9 +35,9 @@
 //   - No use of std::unordered_map, std::map, or other standard associative
 //   containers
 
-class RobinHoodHashMap {
+template <double MaxLoad = 0.75> class RobinHoodHashMap {
 
-  static constexpr double MAX_LOAD = 0.75;
+  static constexpr double MAX_LOAD = MaxLoad;
 
   struct Slot {
     int key;

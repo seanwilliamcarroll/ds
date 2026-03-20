@@ -6,8 +6,8 @@
 
 template <typename T> class HashMapTest : public ::testing::Test {};
 
-using HashMapTypes =
-    ::testing::Types<ChainingHashMap, LinearProbingHashMap, RobinHoodHashMap>;
+using HashMapTypes = ::testing::Types<ChainingHashMap<>, LinearProbingHashMap<>,
+                                      RobinHoodHashMap<>>;
 TYPED_TEST_SUITE(HashMapTest, HashMapTypes);
 
 // --- Basic operations ---

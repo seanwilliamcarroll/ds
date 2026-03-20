@@ -155,8 +155,8 @@ private:
   size_t length = 0;
 };
 
-class ChainingHashMap {
-  static constexpr double MAX_LOAD_PERCENTAGE = 0.75;
+template <double MaxLoad = 0.75> class ChainingHashMap {
+  static constexpr double MAX_LOAD_PERCENTAGE = MaxLoad;
 
 public:
   ChainingHashMap() : buckets(num_buckets) {}

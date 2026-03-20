@@ -32,9 +32,9 @@
 //   - No use of std::unordered_map, std::map, or other standard associative
 //   containers
 
-class LinearProbingHashMap {
+template <double MaxLoad = 0.75> class LinearProbingHashMap {
 
-  static constexpr double MAX_LOAD = 0.75;
+  static constexpr double MAX_LOAD = MaxLoad;
 
   enum class SlotState : uint8_t {
     EMPTY,
