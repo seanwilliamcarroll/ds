@@ -63,8 +63,41 @@ public:
     //       continue inserting the displaced element
     // 3. Place into empty slot
     // 4. Increment size, check load factor, grow if needed
-    (void)key;
-    (void)value;
+    auto home_slot_index = get_home(key);
+    auto slot_index = home_slot_index;
+    size_t inserter_probe_distance = 0;
+
+    while (occupied[slot_index]) {
+      auto &occupant_slot = slots[slot_index];
+      // Is it occupied by our key?
+      if (occupant_slot.key == key) {
+        occupant_slot.value = value;
+        return;
+      }
+      // What's its probe_distance?
+      auto occupant_home_slot_index = get_home(occupant_slot.key);
+      auto occupant_probe_distance =
+          probe_distance(occupant_home_slot_index, slot_index);
+      if (occupant_probe_distance < inserter_probe_distance) {
+        // Replace and reinsert?
+        std::swap(key, occupant_slot.key);
+        std::swap(value, occupant_slot.value);
+        home_slot_index = occupant_home_slot_index;
+        inserter_probe_distance = occupant_probe_distance;
+      }
+      // Occupant was poorer or as poor as me
+      // Continue to next slot
+      slot_index = (slot_index + 1) & (num_slots - 1);
+      ++inserter_probe_distance;
+    }
+    // Found an empty slot
+    occupied[slot_index] = true;
+    slots[slot_index] = {.key = key, .value = value};
+    ++num_entries;
+
+    if (should_resize()) {
+      grow();
+    }
   }
 
   [[nodiscard]]
@@ -76,7 +109,28 @@ public:
     //    b. If occupant's probe distance < our current probe distance,
     //       key is not in the table (early termination)
     // 3. If empty slot, key is not in the table
-    (void)key;
+    auto slot_index = get_home(key);
+    size_t finder_probe_distance = 0;
+
+    while (occupied[slot_index]) {
+      const auto &occupant = slots[slot_index];
+      if (occupant.key == key) {
+        return {occupant.value};
+      }
+      // Check if we're done already
+      auto occupant_home_slot_index = get_home(occupant.key);
+      auto occupant_probe_distance =
+          probe_distance(occupant_home_slot_index, slot_index);
+      if (occupant_probe_distance < finder_probe_distance) {
+        // We've stumbled into the next section, our key can't be here
+        return std::nullopt;
+      }
+
+      // On to next slot
+      slot_index = (slot_index + 1) & (num_slots - 1);
+      ++finder_probe_distance;
+    }
+    // Found empty slot, didn't find it
     return std::nullopt;
   }
 
@@ -87,8 +141,52 @@ public:
     //    a. If empty or at its home position (probe distance 0), stop
     //    b. Otherwise, shift it back into the gap and repeat
     // 3. Decrement size
-    (void)key;
-    return false;
+    auto slot_index = get_home(key);
+    size_t eraser_probe_distance = 0;
+
+    while (occupied[slot_index]) {
+      const auto &occupant = slots[slot_index];
+      if (occupant.key == key) {
+        break;
+      }
+      // Check if we're done already
+      auto occupant_home_slot_index = get_home(occupant.key);
+      auto occupant_probe_distance =
+          probe_distance(occupant_home_slot_index, slot_index);
+      if (occupant_probe_distance < eraser_probe_distance) {
+        // We've stumbled into the next section, our key can't be here
+        return false;
+      }
+
+      // On to next slot
+      slot_index = (slot_index + 1) & (num_slots - 1);
+      ++eraser_probe_distance;
+    }
+    if (!occupied[slot_index]) {
+      // Didn't find the slot
+      return false;
+    }
+
+    // We know that the slot to erase is slot_index now
+    occupied[slot_index] = false;
+    auto previous_slot_index = slot_index;
+    slot_index = (slot_index + 1) & (num_slots - 1);
+    --num_entries;
+    while (occupied[slot_index]) {
+      auto &occupant = slots[slot_index];
+      auto occupant_home_slot_index = get_home(occupant.key);
+      if (occupant_home_slot_index == slot_index) {
+        return true;
+      }
+      // Need to shift it back one
+      std::swap(occupant, slots[previous_slot_index]);
+      std::swap(occupied[slot_index], occupied[previous_slot_index]);
+
+      previous_slot_index = slot_index;
+      slot_index = (slot_index + 1) & (num_slots - 1);
+    }
+
+    return true;
   }
 
   [[nodiscard]]
@@ -123,6 +221,44 @@ private:
 
   void grow() {
     // TODO: double num_slots, reinsert all occupied entries
+    num_slots *= 2;
+    std::vector<bool> new_occupied(num_slots, false);
+    std::vector<Slot> new_slots(num_slots);
+
+    for (size_t slot_index = 0; slot_index < occupied.size(); ++slot_index) {
+      if (!occupied[slot_index]) {
+        continue;
+      }
+      auto &old_occupant = slots[slot_index];
+      // Need to insert into new
+      auto new_home_slot_index = get_home(old_occupant.key);
+      auto new_slot_index = new_home_slot_index;
+      size_t inserter_probe_distance = 0;
+
+      while (new_occupied[new_slot_index]) {
+        auto &new_occupant = new_slots[new_slot_index];
+        // What's its probe_distance?
+        auto occupant_home_slot_index = get_home(new_occupant.key);
+        auto occupant_probe_distance =
+            probe_distance(occupant_home_slot_index, new_slot_index);
+        if (occupant_probe_distance < inserter_probe_distance) {
+          // Replace and reinsert?
+          std::swap(old_occupant, new_occupant);
+          new_home_slot_index = occupant_home_slot_index;
+          inserter_probe_distance = occupant_probe_distance;
+        }
+        // Occupant was poorer or as poor as me
+        // Continue to next slot
+        new_slot_index = (new_slot_index + 1) & (num_slots - 1);
+        ++inserter_probe_distance;
+      }
+      // Found an empty slot
+      new_occupied[new_slot_index] = true;
+      new_slots[new_slot_index] = old_occupant;
+    }
+
+    occupied = std::move(new_occupied);
+    slots = std::move(new_slots);
   }
 
   size_t num_entries = 0;
