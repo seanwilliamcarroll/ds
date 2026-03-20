@@ -1,13 +1,20 @@
 #include "chaining_hash_map.hpp"
 #include "linear_probing_hash_map.hpp"
 #include "robin_hood_hash_map.hpp"
+#include "std_unordered_map_adapter.hpp"
 
 #include <gtest/gtest.h>
 
 template <typename T> class HashMapTest : public ::testing::Test {};
 
-using HashMapTypes = ::testing::Types<ChainingHashMap<>, LinearProbingHashMap<>,
-                                      RobinHoodHashMap<>>;
+// clang-format off
+using HashMapTypes = ::testing::Types<
+    ChainingHashMap<0.5>,            ChainingHashMap<0.75>,            ChainingHashMap<0.9>,
+    LinearProbingHashMap<0.5>,       LinearProbingHashMap<0.75>,       LinearProbingHashMap<0.9>,
+    RobinHoodHashMap<0.5>,           RobinHoodHashMap<0.75>,           RobinHoodHashMap<0.9>,
+    StdUnorderedMapAdapter<0.5>,     StdUnorderedMapAdapter<0.75>,     StdUnorderedMapAdapter<0.9>
+>;
+// clang-format on
 TYPED_TEST_SUITE(HashMapTest, HashMapTypes);
 
 // --- Basic operations ---
