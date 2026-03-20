@@ -28,7 +28,7 @@ COLORS = [
 def parse_benchmark_name(name: str) -> dict:
     """Extract function, type, and size from a benchmark name like
     BM_InsertDense<IndexArenaTrie>/256."""
-    match = re.match(r"^(.+)<(.+)>/(\d+)$", name)
+    match = re.match(r"^([^<]+)<(.+)>/(\d+)$", name)
     if not match:
         return {"function": name, "type": "", "size": 0}
     return {
