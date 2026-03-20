@@ -154,6 +154,16 @@ private:
 
   [[nodiscard]]
   bool should_resize() const {
+    // Tombstones count toward load because insert probes until it finds an
+    // empty slot — if occupied + tombstones fills the table, the probe loops
+    // forever even though actual entry count is low.
+    //
+    // Downside: heavy erase churn can trigger a grow when few real entries
+    // exist (e.g. 12 tombstones + 1 entry → resize to 32 slots with 1/32
+    // occupancy). The production fix is two thresholds: grow when
+    // num_entries / num_slots exceeds a limit, rehash in-place (same
+    // capacity, drop tombstones) when (num_entries + num_tombstones) /
+    // num_slots exceeds a higher limit. Abseil's flat_hash_map does this.
     auto current_load = static_cast<double>(num_entries + num_tombstones) /
                         static_cast<double>(num_slots);
     return current_load > MAX_LOAD;
