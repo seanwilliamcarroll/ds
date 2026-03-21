@@ -3,6 +3,7 @@
 #endif
 
 #include "chaining_hash_map.hpp"
+#include "chaining_hash_map_v2.hpp"
 #include "linear_probing_hash_map.hpp"
 #include "robin_hood_hash_map.hpp"
 #include "std_unordered_map_adapter.hpp"
@@ -137,6 +138,7 @@ template <typename T> static void BM_EraseChurn(benchmark::State &state) {
 // clang-format off
 #define REGISTER_ALL(BM, Load)                                                 \
   BENCHMARK(BM<ChainingHashMap<Load>>)->Range(1 << 8, 1 << 16);               \
+  BENCHMARK(BM<ChainingHashMapV2<Load>>)->Range(1 << 8, 1 << 16);             \
   BENCHMARK(BM<LinearProbingHashMap<Load>>)->Range(1 << 8, 1 << 16);          \
   BENCHMARK(BM<RobinHoodHashMap<Load>>)->Range(1 << 8, 1 << 16);             \
   BENCHMARK(BM<StdUnorderedMapAdapter<Load>>)->Range(1 << 8, 1 << 16)
