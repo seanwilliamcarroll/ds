@@ -109,7 +109,6 @@ struct LinkedList {
           tail = nullptr;
         } else if (current_pointer == head.get()) {
           head = std::move(head->next);
-          return true;
         } else if (current_pointer == tail) {
           tail = previous_pointer;
           tail->next = nullptr;
