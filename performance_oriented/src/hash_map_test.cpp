@@ -17,6 +17,7 @@ using HashMapTypes = ::testing::Types<
     LinearProbingHashMap<0.5, true>, LinearProbingHashMap<0.75, true>, LinearProbingHashMap<0.9, true>,
     LinearProbingHashMap<0.5, false, true>, LinearProbingHashMap<0.75, false, true>, LinearProbingHashMap<0.9, false, true>,
     RobinHoodHashMap<0.5>,           RobinHoodHashMap<0.75>,           RobinHoodHashMap<0.9>,
+    RobinHoodHashMap<0.5, true>,     RobinHoodHashMap<0.75, true>,     RobinHoodHashMap<0.9, true>,
     RobinHoodHashMapV2<0.5>,         RobinHoodHashMapV2<0.75>,         RobinHoodHashMapV2<0.9>,
     StdUnorderedMapAdapter<0.5>,     StdUnorderedMapAdapter<0.75>,     StdUnorderedMapAdapter<0.9>
 >;

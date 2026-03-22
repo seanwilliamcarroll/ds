@@ -304,6 +304,7 @@ static void BM_FindHit_Random_Large(benchmark::State &state) {
   /* BENCHMARK(BM<LinearProbingHashMap<Load, true>>)->Range(1 << 8, 1 << 16); */ \
   /* BENCHMARK(BM<LinearProbingHashMap<Load, false, true>>)->Range(1 << 8, 1 << 16); */ \
   BENCHMARK(BM<RobinHoodHashMap<Load>>)->Range(1 << 8, 1 << 16);             \
+  BENCHMARK(BM<RobinHoodHashMap<Load, true>>)->Range(1 << 8, 1 << 16);      \
   BENCHMARK(BM<RobinHoodHashMapV2<Load>>)->Range(1 << 8, 1 << 16);           \
   BENCHMARK(BM<StdUnorderedMapAdapter<Load>>)->Range(1 << 8, 1 << 16)
 
@@ -338,6 +339,7 @@ REGISTER_ALL(BM_EraseChurn, 0.9);
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, true>>)->Range(1 << 8, 1 << 16); */ \
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, false, true>>)->Range(1 << 8, 1 << 16); */ \
   BENCHMARK(BM<RobinHoodHashMap<0.75>>)->Range(1 << 8, 1 << 16);             \
+  BENCHMARK(BM<RobinHoodHashMap<0.75, true>>)->Range(1 << 8, 1 << 16);      \
   BENCHMARK(BM<RobinHoodHashMapV2<0.75>>)->Range(1 << 8, 1 << 16);           \
   BENCHMARK(BM<StdUnorderedMapAdapter<0.75>>)->Range(1 << 8, 1 << 16)
 
@@ -359,6 +361,7 @@ REGISTER_HASH(BM_FindHit_Strided);
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, true>>)->Range(1 << 16, 1 << 22); */ \
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, false, true>>)->Range(1 << 16, 1 << 22); */ \
   BENCHMARK(BM<RobinHoodHashMap<0.75>>)->Range(1 << 16, 1 << 22);            \
+  BENCHMARK(BM<RobinHoodHashMap<0.75, true>>)->Range(1 << 16, 1 << 22);     \
   BENCHMARK(BM<RobinHoodHashMapV2<0.75>>)->Range(1 << 16, 1 << 22);          \
   BENCHMARK(BM<StdUnorderedMapAdapter<0.75>>)->Range(1 << 16, 1 << 22)
 
