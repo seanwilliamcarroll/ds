@@ -45,10 +45,11 @@ template <double MaxLoad = 0.75> class LinearProbingHashMapV2 {
   struct Slot {
     int key;
     int value;
+    SlotState state = SlotState::EMPTY;
   };
 
 public:
-  LinearProbingHashMapV2() : slot_state(num_slots), slots(num_slots) {}
+  LinearProbingHashMapV2() : slots(num_slots) {}
   ~LinearProbingHashMapV2() = default;
 
   LinearProbingHashMapV2(const LinearProbingHashMapV2 &) = delete;
@@ -78,8 +79,8 @@ public:
       --num_tombstones;
     }
     // State should be empty
-    slots[bucket_index] = {.key = key, .value = value};
-    slot_state[bucket_index] = SlotState::OCCUPIED;
+    slots[bucket_index] = {
+        .key = key, .value = value, .state = SlotState::OCCUPIED};
     ++num_entries;
 
     if (should_resize()) {
@@ -116,7 +117,7 @@ public:
       return false;
     }
     --num_entries;
-    slot_state[bucket_index] = SlotState::TOMBSTONE;
+    slots[bucket_index].state = SlotState::TOMBSTONE;
     ++num_tombstones;
     return true;
   }
@@ -134,7 +135,7 @@ public:
 private:
   [[nodiscard]]
   bool is_occupied(size_t index) const {
-    return slot_state[index] == SlotState::OCCUPIED;
+    return slots[index].state == SlotState::OCCUPIED;
   }
 
   [[nodiscard]]
@@ -144,12 +145,12 @@ private:
 
   [[nodiscard]]
   bool is_empty(size_t index) const {
-    return slot_state[index] == SlotState::EMPTY;
+    return slots[index].state == SlotState::EMPTY;
   }
 
   [[nodiscard]]
   bool is_tombstone(size_t index) const {
-    return slot_state[index] == SlotState::TOMBSTONE;
+    return slots[index].state == SlotState::TOMBSTONE;
   }
 
   [[nodiscard]]
@@ -171,30 +172,30 @@ private:
 
   void grow() {
     num_slots *= 2;
+    --shift;
 
-    std::vector<SlotState> new_slot_state(num_slots);
     std::vector<Slot> new_slots(num_slots);
 
-    for (size_t old_bucket_index = 0; old_bucket_index < slot_state.size();
+    for (size_t old_bucket_index = 0; old_bucket_index < slots.size();
          ++old_bucket_index) {
-      if (slot_state[old_bucket_index] != SlotState::OCCUPIED) {
+      if (slots[old_bucket_index].state != SlotState::OCCUPIED) {
         continue;
       }
       auto new_bucket_index = get_bucket_index(slots[old_bucket_index].key);
-      while (new_slot_state[new_bucket_index] == SlotState::OCCUPIED) {
+      while (new_slots[new_bucket_index].state == SlotState::OCCUPIED) {
         new_bucket_index = (new_bucket_index + 1) & (num_slots - 1);
       }
-      new_slot_state[new_bucket_index] = SlotState::OCCUPIED;
       new_slots[new_bucket_index] = slots[old_bucket_index];
     }
-    slot_state = std::move(new_slot_state);
     slots = std::move(new_slots);
     num_tombstones = 0;
   }
 
   [[nodiscard]]
-  static size_t get_hash(int key) {
-    return std::hash<int>()(key);
+  size_t get_hash(int key) const {
+    // Fibonacci hash for sequential keys
+    return static_cast<size_t>((static_cast<uint32_t>(key) * 2654435769U) >>
+                               shift);
   }
 
   [[nodiscard]]
@@ -205,6 +206,6 @@ private:
   size_t num_entries = 0;
   size_t num_tombstones = 0;
   size_t num_slots = 16;
-  std::vector<SlotState> slot_state;
+  size_t shift = 32 - 4;
   std::vector<Slot> slots;
 };
