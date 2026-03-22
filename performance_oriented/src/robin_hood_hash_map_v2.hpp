@@ -45,7 +45,7 @@ template <double MaxLoad = 0.75> class RobinHoodHashMapV2 {
   };
 
 public:
-  RobinHoodHashMapV2() : slot_state(num_slots), slots(num_slots) {}
+  RobinHoodHashMapV2() : slot_state(num_slots, 0U), slots(num_slots) {}
   ~RobinHoodHashMapV2() = default;
 
   RobinHoodHashMapV2(const RobinHoodHashMapV2 &) = delete;
@@ -67,7 +67,7 @@ public:
     auto slot_index = home_slot_index;
     size_t inserter_probe_distance = 0;
 
-    while (slot_state[slot_index]) {
+    while (slot_state[slot_index] != 0U) {
       auto &occupant_slot = slots[slot_index];
       // Is it occupied by our key?
       if (occupant_slot.key == key) {
@@ -112,7 +112,7 @@ public:
     auto slot_index = get_home(key);
     size_t finder_probe_distance = 0;
 
-    while (slot_state[slot_index]) {
+    while (slot_state[slot_index] != 0U) {
       const auto &occupant = slots[slot_index];
       if (occupant.key == key) {
         return {occupant.value};
@@ -144,7 +144,7 @@ public:
     auto slot_index = get_home(key);
     size_t eraser_probe_distance = 0;
 
-    while (slot_state[slot_index]) {
+    while (slot_state[slot_index] != 0U) {
       const auto &occupant = slots[slot_index];
       if (occupant.key == key) {
         break;
@@ -162,17 +162,17 @@ public:
       slot_index = (slot_index + 1) & (num_slots - 1);
       ++eraser_probe_distance;
     }
-    if (!slot_state[slot_index]) {
+    if (slot_state[slot_index] == 0U) {
       // Didn't find the slot
       return false;
     }
 
     // We know that the slot to erase is slot_index now
-    slot_state[slot_index] = false;
+    slot_state[slot_index] = 0U;
     auto previous_slot_index = slot_index;
     slot_index = (slot_index + 1) & (num_slots - 1);
     --num_entries;
-    while (slot_state[slot_index]) {
+    while (slot_state[slot_index] != 0U) {
       auto &occupant = slots[slot_index];
       auto occupant_home_slot_index = get_home(occupant.key);
       if (occupant_home_slot_index == slot_index) {
@@ -222,11 +222,11 @@ private:
   void grow() {
     // TODO: double num_slots, reinsert all occupied entries
     num_slots *= 2;
-    std::vector<uint8_t> new_slot_state(num_slots, false);
+    std::vector<uint8_t> new_slot_state(num_slots, 0U);
     std::vector<Slot> new_slots(num_slots);
 
     for (size_t slot_index = 0; slot_index < slot_state.size(); ++slot_index) {
-      if (!slot_state[slot_index]) {
+      if (slot_state[slot_index] == 0U) {
         continue;
       }
       auto &old_occupant = slots[slot_index];
@@ -235,7 +235,7 @@ private:
       auto new_slot_index = new_home_slot_index;
       size_t inserter_probe_distance = 0;
 
-      while (new_slot_state[new_slot_index]) {
+      while (new_slot_state[new_slot_index] != 0U) {
         auto &new_occupant = new_slots[new_slot_index];
         // What's its probe_distance?
         auto occupant_home_slot_index = get_home(new_occupant.key);
