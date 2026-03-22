@@ -10,6 +10,10 @@
 
 #include <benchmark/benchmark.h>
 #include <cstdint>
+#include <cstdlib>
+#include <numeric>
+#include <random>
+#include <vector>
 
 // When compiled with -DTRACK_MEMORY, reports heap bytes via custom counters.
 // The alloc_counter overrides global new/delete, adding a small per-allocation
@@ -130,12 +134,168 @@ template <typename T> static void BM_EraseChurn(benchmark::State &state) {
   }
 }
 
+// --- Key generation helpers ---
+// Fixed seed for reproducibility across runs.
+
+static std::vector<int> make_random_keys(int64_t n) {
+  // Shuffle [0, 10N) and take the first N. Guarantees uniqueness without
+  // needing a set, and the large range means keys are sparse/scattered.
+  std::vector<int> keys(static_cast<size_t>(n * 10));
+  std::iota(keys.begin(), keys.end(), 0);
+  std::mt19937 rng(42);
+  std::shuffle(keys.begin(), keys.end(), rng);
+  keys.resize(static_cast<size_t>(n));
+  return keys;
+}
+
+static std::vector<int> make_strided_keys(int64_t n, int stride) {
+  std::vector<int> keys;
+  keys.reserve(static_cast<size_t>(n));
+  for (int64_t i = 0; i < n; ++i) {
+    keys.push_back(static_cast<int>(i) * stride);
+  }
+  return keys;
+}
+
+// --- Random key scenarios ---
+// Tests hash quality and cache behavior with non-sequential access.
+// Identity hash maps random keys to scattered slots — fine for distribution,
+// but random access patterns break the sequential-scan cache advantage that
+// helps open addressing with sequential keys.
+//
+// Note: keys are read from a pre-built vector, adding one L1-hot sequential
+// read per operation vs the counter in the original benchmarks. This cost is
+// identical across all implementations so relative comparisons are valid.
+
+template <typename T> static void BM_Insert_Random(benchmark::State &state) {
+  auto n = state.range(0);
+  auto keys = make_random_keys(n);
+  for (auto _ : state) {
+    T map;
+    for (int64_t i = 0; i < n; ++i) {
+      map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+    }
+    benchmark::DoNotOptimize(map);
+  }
+}
+
+template <typename T> static void BM_FindHit_Random(benchmark::State &state) {
+  auto n = state.range(0);
+  auto keys = make_random_keys(n);
+  T map;
+  for (int64_t i = 0; i < n; ++i) {
+    map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+  }
+
+  // Shuffle lookup order so we're not finding in insertion order
+  auto lookup_keys = keys;
+  std::mt19937 rng(123);
+  std::shuffle(lookup_keys.begin(), lookup_keys.end(), rng);
+
+  for (auto _ : state) {
+    for (int64_t i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(map.find(lookup_keys[static_cast<size_t>(i)]));
+    }
+  }
+}
+
+// --- Strided key scenarios ---
+// Pathological for identity hash with power-of-two tables. Keys that are
+// multiples of 16 all map to slot 0 (since hash(k) & (16-1) = 0 when k is
+// a multiple of 16). This creates massive clustering for open addressing
+// and long chains for chaining. A good hash function would scatter these.
+//
+// Note: stride of 16 was chosen to match common initial table sizes. As the
+// table grows (32, 64, ...) the collision pattern shifts but clustering
+// remains severe — e.g. with 32 slots, all keys land on slots 0 or 16.
+
+template <typename T> static void BM_Insert_Strided(benchmark::State &state) {
+  auto n = state.range(0);
+  auto keys = make_strided_keys(n, 16);
+  for (auto _ : state) {
+    T map;
+    for (int64_t i = 0; i < n; ++i) {
+      map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+    }
+    benchmark::DoNotOptimize(map);
+  }
+}
+
+template <typename T> static void BM_FindHit_Strided(benchmark::State &state) {
+  auto n = state.range(0);
+  auto keys = make_strided_keys(n, 16);
+  T map;
+  for (int64_t i = 0; i < n; ++i) {
+    map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+  }
+
+  for (auto _ : state) {
+    for (int64_t i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(map.find(keys[static_cast<size_t>(i)]));
+    }
+  }
+}
+
+// --- Large scale scenarios ---
+// Extends to 1<<22 (~4M entries) to push tables well past L2 cache.
+// At ~9 bytes/slot with 0.75 load, 1<<22 entries needs ~5.6M slots ≈ 50MB.
+// On Apple Silicon, P-core L2 is 16MB — so 1<<20 (~12.6MB) barely fits
+// while 1<<22 is fully cache-cold. This is where prefetching would help —
+// the next probe position is predictable but almost certainly a cache miss.
+//
+// Three variants: sequential keys (best-case cache pattern), random keys
+// (realistic), and random lookups (worst-case — random key + random order).
+
+template <typename T> static void BM_Insert_Large(benchmark::State &state) {
+  auto n = state.range(0);
+  for (auto _ : state) {
+    T map;
+    for (int64_t i = 0; i < n; ++i) {
+      map.insert(static_cast<int>(i), static_cast<int>(i));
+    }
+    benchmark::DoNotOptimize(map);
+  }
+}
+
+template <typename T> static void BM_FindHit_Large(benchmark::State &state) {
+  auto n = state.range(0);
+  T map;
+  for (int64_t i = 0; i < n; ++i) {
+    map.insert(static_cast<int>(i), static_cast<int>(i));
+  }
+
+  for (auto _ : state) {
+    for (int64_t i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(map.find(static_cast<int>(i)));
+    }
+  }
+}
+
+template <typename T>
+static void BM_FindHit_Random_Large(benchmark::State &state) {
+  auto n = state.range(0);
+  auto keys = make_random_keys(n);
+  T map;
+  for (int64_t i = 0; i < n; ++i) {
+    map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+  }
+
+  auto lookup_keys = keys;
+  std::mt19937 rng(123);
+  std::shuffle(lookup_keys.begin(), lookup_keys.end(), rng);
+
+  for (auto _ : state) {
+    for (int64_t i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(map.find(lookup_keys[static_cast<size_t>(i)]));
+    }
+  }
+}
+
 // --- Registration ---
-// 5 scenarios x 4 implementations x 3 load factors = 60 benchmarks
-// The 0.9 load factor runs of FindHit/FindMiss correspond to the
-// "high load find" scenario in the hypotheses.
 
 // clang-format off
+
+// Original scenarios: 5 scenarios x 5 impls x 3 load factors
 #define REGISTER_ALL(BM, Load)                                                 \
   BENCHMARK(BM<ChainingHashMap<Load>>)->Range(1 << 8, 1 << 16);               \
   BENCHMARK(BM<ChainingHashMapV2<Load>>)->Range(1 << 8, 1 << 16);             \
@@ -162,8 +322,42 @@ REGISTER_ALL(BM_EraseAndFind, 0.9);
 REGISTER_ALL(BM_EraseChurn, 0.5);
 REGISTER_ALL(BM_EraseChurn, 0.75);
 REGISTER_ALL(BM_EraseChurn, 0.9);
-// clang-format on
 
 #undef REGISTER_ALL
+
+// Hash quality scenarios: random + strided keys at load 0.75 only.
+// Load factor is not the variable here — key distribution is.
+#define REGISTER_HASH(BM)                                                      \
+  BENCHMARK(BM<ChainingHashMap<0.75>>)->Range(1 << 8, 1 << 16);               \
+  BENCHMARK(BM<ChainingHashMapV2<0.75>>)->Range(1 << 8, 1 << 16);             \
+  BENCHMARK(BM<LinearProbingHashMap<0.75>>)->Range(1 << 8, 1 << 16);          \
+  BENCHMARK(BM<RobinHoodHashMap<0.75>>)->Range(1 << 8, 1 << 16);             \
+  BENCHMARK(BM<StdUnorderedMapAdapter<0.75>>)->Range(1 << 8, 1 << 16)
+
+REGISTER_HASH(BM_Insert_Random);
+REGISTER_HASH(BM_FindHit_Random);
+REGISTER_HASH(BM_Insert_Strided);
+REGISTER_HASH(BM_FindHit_Strided);
+
+#undef REGISTER_HASH
+
+// Large scale scenarios: 1<<16 to 1<<22, load 0.75 only.
+// Targets cache boundary behavior and prefetch opportunities.
+// On Apple Silicon (P-core L2 = 16MB), 1<<20 (~12.6MB) barely fits;
+// 1<<22 (~50MB) is fully cache-cold.
+#define REGISTER_LARGE(BM)                                                     \
+  BENCHMARK(BM<ChainingHashMap<0.75>>)->Range(1 << 16, 1 << 22);              \
+  BENCHMARK(BM<ChainingHashMapV2<0.75>>)->Range(1 << 16, 1 << 22);            \
+  BENCHMARK(BM<LinearProbingHashMap<0.75>>)->Range(1 << 16, 1 << 22);         \
+  BENCHMARK(BM<RobinHoodHashMap<0.75>>)->Range(1 << 16, 1 << 22);            \
+  BENCHMARK(BM<StdUnorderedMapAdapter<0.75>>)->Range(1 << 16, 1 << 22)
+
+REGISTER_LARGE(BM_Insert_Large);
+REGISTER_LARGE(BM_FindHit_Large);
+REGISTER_LARGE(BM_FindHit_Random_Large);
+
+#undef REGISTER_LARGE
+
+// clang-format on
 
 BENCHMARK_MAIN();
