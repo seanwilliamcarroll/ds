@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -45,7 +46,8 @@ template <double MaxLoad = 0.75> class RobinHoodHashMapV2 {
   };
 
 public:
-  RobinHoodHashMapV2() : slot_state(num_slots, 0U), slots(num_slots) {}
+  RobinHoodHashMapV2()
+      : stored_probe_distance(num_slots, 0U), slots(num_slots) {}
   ~RobinHoodHashMapV2() = default;
 
   RobinHoodHashMapV2(const RobinHoodHashMapV2 &) = delete;
@@ -65,9 +67,9 @@ public:
     // 4. Increment size, check load factor, grow if needed
     auto home_slot_index = get_home(key);
     auto slot_index = home_slot_index;
-    size_t inserter_probe_distance = 0;
+    uint8_t inserter_probe_distance = 0;
 
-    while (slot_state[slot_index] != 0U) {
+    while (stored_probe_distance[slot_index] != 0U) {
       auto &occupant_slot = slots[slot_index];
       // Is it occupied by our key?
       if (occupant_slot.key == key) {
@@ -75,14 +77,12 @@ public:
         return;
       }
       // What's its probe_distance?
-      auto occupant_home_slot_index = get_home(occupant_slot.key);
-      auto occupant_probe_distance =
-          probe_distance(occupant_home_slot_index, slot_index);
+      uint8_t occupant_probe_distance = stored_probe_distance[slot_index] - 1U;
       if (occupant_probe_distance < inserter_probe_distance) {
         // Replace and reinsert?
         std::swap(key, occupant_slot.key);
         std::swap(value, occupant_slot.value);
-        home_slot_index = occupant_home_slot_index;
+        stored_probe_distance[slot_index] = inserter_probe_distance + 1U;
         inserter_probe_distance = occupant_probe_distance;
       }
       // Occupant was poorer or as poor as me
@@ -91,7 +91,7 @@ public:
       ++inserter_probe_distance;
     }
     // Found an empty slot
-    slot_state[slot_index] = true;
+    stored_probe_distance[slot_index] = inserter_probe_distance + 1U;
     slots[slot_index] = {.key = key, .value = value};
     ++num_entries;
 
@@ -110,17 +110,15 @@ public:
     //       key is not in the table (early termination)
     // 3. If empty slot, key is not in the table
     auto slot_index = get_home(key);
-    size_t finder_probe_distance = 0;
+    uint8_t finder_probe_distance = 0;
 
-    while (slot_state[slot_index] != 0U) {
+    while (stored_probe_distance[slot_index] != 0U) {
       const auto &occupant = slots[slot_index];
       if (occupant.key == key) {
         return {occupant.value};
       }
       // Check if we're done already
-      auto occupant_home_slot_index = get_home(occupant.key);
-      auto occupant_probe_distance =
-          probe_distance(occupant_home_slot_index, slot_index);
+      uint8_t occupant_probe_distance = stored_probe_distance[slot_index] - 1U;
       if (occupant_probe_distance < finder_probe_distance) {
         // We've stumbled into the next section, our key can't be here
         return std::nullopt;
@@ -142,17 +140,15 @@ public:
     //    b. Otherwise, shift it back into the gap and repeat
     // 3. Decrement size
     auto slot_index = get_home(key);
-    size_t eraser_probe_distance = 0;
+    uint8_t eraser_probe_distance = 0;
 
-    while (slot_state[slot_index] != 0U) {
+    while (stored_probe_distance[slot_index] != 0U) {
       const auto &occupant = slots[slot_index];
       if (occupant.key == key) {
         break;
       }
       // Check if we're done already
-      auto occupant_home_slot_index = get_home(occupant.key);
-      auto occupant_probe_distance =
-          probe_distance(occupant_home_slot_index, slot_index);
+      uint8_t occupant_probe_distance = stored_probe_distance[slot_index] - 1U;
       if (occupant_probe_distance < eraser_probe_distance) {
         // We've stumbled into the next section, our key can't be here
         return false;
@@ -162,25 +158,26 @@ public:
       slot_index = (slot_index + 1) & (num_slots - 1);
       ++eraser_probe_distance;
     }
-    if (slot_state[slot_index] == 0U) {
+    if (stored_probe_distance[slot_index] == 0U) {
       // Didn't find the slot
       return false;
     }
 
     // We know that the slot to erase is slot_index now
-    slot_state[slot_index] = 0U;
+    stored_probe_distance[slot_index] = 0U;
     auto previous_slot_index = slot_index;
     slot_index = (slot_index + 1) & (num_slots - 1);
     --num_entries;
-    while (slot_state[slot_index] != 0U) {
+    while (stored_probe_distance[slot_index] != 0U) {
       auto &occupant = slots[slot_index];
-      auto occupant_home_slot_index = get_home(occupant.key);
-      if (occupant_home_slot_index == slot_index) {
+      uint8_t occupant_probe_distance = stored_probe_distance[slot_index] - 1U;
+      if (occupant_probe_distance == 0U) {
         return true;
       }
       // Need to shift it back one
       std::swap(occupant, slots[previous_slot_index]);
-      std::swap(slot_state[slot_index], slot_state[previous_slot_index]);
+      std::swap(stored_probe_distance[slot_index],
+                stored_probe_distance[previous_slot_index]);
 
       previous_slot_index = slot_index;
       slot_index = (slot_index + 1) & (num_slots - 1);
@@ -222,29 +219,30 @@ private:
   void grow() {
     // TODO: double num_slots, reinsert all occupied entries
     num_slots *= 2;
-    std::vector<uint8_t> new_slot_state(num_slots, 0U);
+    std::vector<uint8_t> new_stored_probe_distance(num_slots, 0U);
     std::vector<Slot> new_slots(num_slots);
 
-    for (size_t slot_index = 0; slot_index < slot_state.size(); ++slot_index) {
-      if (slot_state[slot_index] == 0U) {
+    for (size_t slot_index = 0; slot_index < stored_probe_distance.size();
+         ++slot_index) {
+      if (stored_probe_distance[slot_index] == 0U) {
         continue;
       }
       auto &old_occupant = slots[slot_index];
       // Need to insert into new
       auto new_home_slot_index = get_home(old_occupant.key);
       auto new_slot_index = new_home_slot_index;
-      size_t inserter_probe_distance = 0;
+      uint8_t inserter_probe_distance = 0;
 
-      while (new_slot_state[new_slot_index] != 0U) {
+      while (new_stored_probe_distance[new_slot_index] != 0U) {
         auto &new_occupant = new_slots[new_slot_index];
         // What's its probe_distance?
-        auto occupant_home_slot_index = get_home(new_occupant.key);
-        auto occupant_probe_distance =
-            probe_distance(occupant_home_slot_index, new_slot_index);
+        uint8_t occupant_probe_distance =
+            new_stored_probe_distance[new_slot_index] - 1U;
         if (occupant_probe_distance < inserter_probe_distance) {
           // Replace and reinsert?
           std::swap(old_occupant, new_occupant);
-          new_home_slot_index = occupant_home_slot_index;
+          new_stored_probe_distance[new_slot_index] =
+              inserter_probe_distance + 1U;
           inserter_probe_distance = occupant_probe_distance;
         }
         // Occupant was poorer or as poor as me
@@ -253,16 +251,16 @@ private:
         ++inserter_probe_distance;
       }
       // Found an empty slot
-      new_slot_state[new_slot_index] = true;
+      new_stored_probe_distance[new_slot_index] = inserter_probe_distance + 1U;
       new_slots[new_slot_index] = old_occupant;
     }
 
-    slot_state = std::move(new_slot_state);
+    stored_probe_distance = std::move(new_stored_probe_distance);
     slots = std::move(new_slots);
   }
 
   size_t num_entries = 0;
   size_t num_slots = 16;
-  std::vector<uint8_t> slot_state;
+  std::vector<uint8_t> stored_probe_distance;
   std::vector<Slot> slots;
 };
