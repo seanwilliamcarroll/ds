@@ -1,8 +1,9 @@
 # Hash Map Performance Improvements
 
 Potential optimizations for our implementations, ordered roughly by expected impact.
+See `hash_map_perf_findings.md` for detailed benchmark results.
 
-## 1. Replace `vector<bool>` with `vector<uint8_t>` (Robin Hood)
+## 1. Replace `vector<bool>` with `vector<uint8_t>` (Robin Hood) — TODO
 
 Robin Hood uses `vector<bool>` for the occupied bitmap, which is bit-packed (~0.125
 bytes per slot). This saves memory (16.25 vs ~18 bytes/entry) but every probe requires
@@ -16,36 +17,37 @@ since the access pattern becomes simpler and more predictable.
 **Tradeoff:** memory vs probe throughput. At high load factors where probe chains are
 longer, the per-probe cost dominates and `uint8_t` should win clearly.
 
-## 2. Merge two arrays into one (Linear Probing, Robin Hood)
+## 2. ~~Merge two arrays into one (Linear Probing, Robin Hood)~~ — REJECTED
 
-Both open addressing implementations use two separate vectors — one for metadata
-(`slot_state` or `occupied`) and one for key-value slots. Every probe touches two
-cache lines in unrelated memory regions.
+**Status:** Tried in LinearProbingHashMapV2. Was 1.3–21x slower than the original
+SoA layout across nearly all scenarios. The regression got dramatically worse at scale
+(21x at 4M entries).
 
-Merging into a single `vector<Entry>` where each entry contains its metadata byte
-alongside the key-value pair means a single cache line fetch gives you everything
-needed for a probe step. The struct would be ~12 bytes (1 byte state + 3 padding +
-4 byte key + 4 byte value), or 9 bytes packed.
+The original implementation already used separate arrays (SoA) — a deliberate design
+choice based on the insight that probing scans slot states far more often than it reads
+key-value data. This keeps the state array dense: 128 states per Apple Silicon cache
+line vs ~10 merged 12-byte slots. The merged struct wastes cache capacity loading
+key-value bytes just to check if a slot is empty.
 
-**Tradeoff:** struct padding may waste bytes per slot, but the cache locality gain
-should more than compensate. This is likely the single highest-impact change for
-open addressing.
+**Verdict:** SoA is the correct layout for linear probing. Do not merge.
 
-## 3. Better hash function
+## 3. Better hash function — DONE (mixed results)
 
-`std::hash<int>` is typically the identity function — `hash(k) = k`. Sequential keys
-map to sequential slots, which is fine for our benchmarks (sequential insert is
-actually cache-friendly). But in real workloads with clustered keys, identity hashing
-creates long probe chains.
+**Status:** Implemented Fibonacci hashing (`key * 2654435769u >> shift`) in
+LinearProbingHashMapV2. Uses right-shift (not mask) to extract the high bits where
+the multiply concentrates entropy.
 
-Fibonacci hashing (`key * 2654435769u >> shift`) scatters keys across the table with
-minimal clustering. It's a single multiply and shift — negligible cost per operation.
+**Results:**
+- Strided keys (pathological): **1.65–2.1x faster** — clustering eliminated
+- Sequential keys: **~1.3x slower** — breaks the cache-friendly sequential access pattern
+- Random keys: **~1.3x slower** — no clustering to fix, but hash is slightly more expensive
 
-**Tradeoff:** for our sequential-key benchmarks, a better hash might actually hurt
-slightly (breaks the sequential access pattern). For realistic workloads it's a clear
-win. Worth benchmarking both.
+**Verdict:** Clear win for real workloads where keys aren't perfectly sequential.
+The shift (high bits) vs mask (low bits) distinction matters — low bits have weaker
+entropy from the multiply. Store a `shift_` member updated on grow instead of
+computing `log2` per probe.
 
-## 4. Store probe distance in slot (Robin Hood)
+## 4. Store probe distance in slot (Robin Hood) — TODO (proceed with caution)
 
 Robin Hood currently recomputes `probe_distance(getHome(key), current_slot)` at every
 probe step during insert, find, and erase. This involves a hash computation and modular
@@ -58,7 +60,12 @@ adds 1-4 bytes per slot but removes a hash + mod per probe step.
 **Tradeoff:** increases slot size (hurts cache density) but reduces per-probe compute.
 Most impactful at high load factors where probe chains are long.
 
-## 5. Prefetching
+**Caution:** Finding #2 showed that adding bytes per slot has real cache cost. The
+state array's density is critical. If probe distance is stored alongside state in the
+metadata array (not merged with key-value), the cost may be acceptable — but benchmark
+carefully.
+
+## 5. Prefetching — TODO
 
 When probing linearly, the next slot to check is predictable. Issuing a
 `__builtin_prefetch` for the next probe position while processing the current one
@@ -66,20 +73,18 @@ hides memory latency. At large table sizes where the working set exceeds L2/L3 c
 this can significantly reduce stall cycles.
 
 **Tradeoff:** prefetching adds instruction overhead and is only useful when the table
-doesn't fit in cache. At N=65536 with ~9 bytes/slot, the table is ~590KB — near the
-boundary of L2 cache. Larger tables would benefit more.
+doesn't fit in cache. Our large-scale benchmarks (1<<22 = 4M entries, ~50MB table)
+are fully cache-cold on Apple Silicon (P-core L2 = 16MB) — prefetching should help
+most there.
 
-## 6. Pool allocator for chaining
+## 6. Pool allocator for chaining — DONE
 
-Our chaining implementation calls `make_unique` for every inserted node, hitting the
-general-purpose allocator each time. This is the primary reason chaining is 10-14x
-slower than open addressing — not the algorithm, but the allocation pattern.
+**Status:** Implemented in ChainingHashMapV2 with an intrusive free list.
 
-A pool/arena allocator pre-allocates a slab of nodes and hands them out via pointer
-bump. This eliminates per-node `malloc` overhead and keeps nodes contiguous in memory
-(improving cache behavior during traversal).
+**Results:** 3–6x faster on insert, ~10x faster on erase+find. Makes chaining
+competitive with open addressing.
 
-**Tradeoff:** adds implementation complexity and memory management responsibility.
-Won't close the gap with open addressing entirely (pointer chasing still has
-fundamental cache disadvantages) but should narrow it substantially. This is the
-highest-impact change for chaining specifically.
+The intrusive free list reuses each node's `next` pointer to thread free nodes
+together, requiring zero additional memory beyond the node pool itself. Key detail:
+when growing, nodes must be fully reinitialized (constructor, not just key/value
+assignment) to clear stale `next` pointers before reinsertion.
