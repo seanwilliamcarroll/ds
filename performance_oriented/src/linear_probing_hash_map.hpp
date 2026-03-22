@@ -32,7 +32,9 @@
 //   - No use of std::unordered_map, std::map, or other standard associative
 //   containers
 
-template <double MaxLoad = 0.75> class LinearProbingHashMap {
+template <double MaxLoad = 0.75, bool UseFibonacciHash = false,
+          bool UsePrefetching = false>
+class LinearProbingHashMap {
 
   static constexpr double MAX_LOAD = MaxLoad;
 
@@ -171,6 +173,9 @@ private:
 
   void grow() {
     num_slots *= 2;
+    if constexpr (UseFibonacciHash) {
+      --shift;
+    }
 
     std::vector<SlotState> new_slot_state(num_slots);
     std::vector<Slot> new_slots(num_slots);
@@ -193,8 +198,14 @@ private:
   }
 
   [[nodiscard]]
-  static size_t get_hash(int key) {
-    return std::hash<int>()(key);
+  size_t get_hash(int key) const {
+    if constexpr (UseFibonacciHash) {
+      // Fibonacci hash for sequential keys
+      return static_cast<size_t>((static_cast<uint32_t>(key) * 2654435769U) >>
+                                 shift);
+    } else {
+      return std::hash<int>()(key);
+    }
   }
 
   [[nodiscard]]
@@ -205,6 +216,7 @@ private:
   size_t num_entries = 0;
   size_t num_tombstones = 0;
   size_t num_slots = 16;
+  size_t shift = 32 - 4;
   std::vector<SlotState> slot_state;
   std::vector<Slot> slots;
 };
