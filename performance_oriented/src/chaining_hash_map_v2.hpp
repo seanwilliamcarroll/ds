@@ -1,8 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <functional>
-#include <memory>
 #include <optional>
 
 // Chaining Hash Map (int → int)
@@ -30,13 +30,13 @@
 //   - You must manage your own linked list nodes (heap-allocated)
 
 struct LinkedListNodeV2 {
+  LinkedListNodeV2() = default;
 
-  LinkedListNodeV2(int key, int value)
-      : key(key), value(value), next(nullptr) {}
+  LinkedListNodeV2(int key, int value) : key(key), value(value) {}
 
-  int key;
-  int value;
-  std::unique_ptr<LinkedListNodeV2> next;
+  int key = 0;
+  int value = 0;
+  LinkedListNodeV2 *next = nullptr;
 };
 
 struct LinkedListV2 {
@@ -46,7 +46,7 @@ struct LinkedListV2 {
 
     LinkedListNodeV2 &operator*() const { return *node; }
     Iterator &operator++() {
-      node = node->next.get();
+      node = node->next;
       return *this;
     }
     bool operator!=(const Iterator &other) const { return node != other.node; }
@@ -56,7 +56,7 @@ struct LinkedListV2 {
 
   [[nodiscard]]
   Iterator begin() const {
-    return {head.get()};
+    return {head};
   }
 
   [[nodiscard]]
@@ -69,61 +69,67 @@ struct LinkedListV2 {
     if (head == nullptr) {
       return std::nullopt;
     }
-    auto *current_node = head.get();
+    auto *current_node = head;
     while (current_node != nullptr) {
       if (current_node->key == key) {
         return {current_node->value};
       }
-      current_node = current_node->next.get();
+      current_node = current_node->next;
     }
     return std::nullopt;
   }
 
-  // Return true on successful insert, false on replacement?
-  bool insert(int key, int value) {
+  // Return true on successful insert, false on replacement
+  // Tells us whether we used this new node or not
+  bool insert(int key, int value, LinkedListNodeV2 *new_node) {
     if (head == nullptr) {
-      auto new_node = std::make_unique<LinkedListNodeV2>(key, value);
-      head = std::move(new_node);
-      tail = head.get();
+      *new_node = LinkedListNodeV2(key, value);
+      head = new_node;
+      tail = head;
       length = 1;
       return true;
     }
-    auto *current_pointer = head.get();
+    auto *current_pointer = head;
     while (current_pointer != nullptr) {
       if (current_pointer->key == key) {
         current_pointer->value = value;
         return false;
       }
-      current_pointer = current_pointer->next.get();
+      current_pointer = current_pointer->next;
     }
-    force_insert(key, value);
+    *new_node = LinkedListNodeV2(key, value);
+    force_insert(new_node);
     return true;
   }
 
-  bool erase(int key) {
-    auto *current_pointer = head.get();
-    auto *previous_pointer = head.get();
+  LinkedListNodeV2 *erase(int key) {
+    auto *current_pointer = head;
+    auto *previous_pointer = head;
+    LinkedListNodeV2 *old_node = nullptr;
     while (current_pointer != nullptr) {
       if (current_pointer->key == key) {
-        if (current_pointer == head.get() && current_pointer == tail) {
+        if (current_pointer == head && current_pointer == tail) {
+          old_node = head;
           head = nullptr;
           tail = nullptr;
-        } else if (current_pointer == head.get()) {
-          head = std::move(head->next);
-          return true;
+        } else if (current_pointer == head) {
+          old_node = head;
+          head = head->next;
         } else if (current_pointer == tail) {
+          old_node = tail;
           tail = previous_pointer;
           tail->next = nullptr;
         } else {
-          previous_pointer->next = std::move(current_pointer->next);
+          old_node = current_pointer;
+          previous_pointer->next = current_pointer->next;
         }
         --length;
-        return true;
+        return old_node;
       }
       previous_pointer = current_pointer;
-      current_pointer = previous_pointer->next.get();
+      current_pointer = previous_pointer->next;
     }
-    return false;
+    return nullptr;
   }
 
   [[nodiscard]]
@@ -136,22 +142,20 @@ struct LinkedListV2 {
     return length;
   }
 
-  void force_insert(int key, int value) {
+  void force_insert(LinkedListNodeV2 *new_node) {
     if (head == nullptr) {
-      auto new_node = std::make_unique<LinkedListNodeV2>(key, value);
-      head = std::move(new_node);
-      tail = head.get();
+      head = new_node;
+      tail = head;
       length = 1;
       return;
     }
-    auto new_node = std::make_unique<LinkedListNodeV2>(key, value);
-    tail->next = std::move(new_node);
-    tail = tail->next.get();
+    tail->next = new_node;
+    tail = tail->next;
     ++length;
   }
 
 private:
-  std::unique_ptr<LinkedListNodeV2> head = nullptr;
+  LinkedListNodeV2 *head = nullptr;
   LinkedListNodeV2 *tail = nullptr;
   size_t length = 0;
 };
@@ -159,8 +163,20 @@ private:
 template <double MaxLoad = 0.75> class ChainingHashMapV2 {
   static constexpr double MAX_LOAD_PERCENTAGE = MaxLoad;
 
+  static constexpr size_t NULL_INDEX = 0;
+
 public:
-  ChainingHashMapV2() : buckets(num_buckets) {}
+  ChainingHashMapV2()
+      : buckets(num_buckets), allocated_nodes(num_buckets),
+        free_list_head(&allocated_nodes.front()) {
+    auto *current_pointer = free_list_head;
+    for (auto iter = (allocated_nodes.begin() + 1);
+         iter != allocated_nodes.end(); ++iter) {
+      auto &node = *iter;
+      current_pointer->next = &node;
+      current_pointer = current_pointer->next;
+    }
+  }
 
   ~ChainingHashMapV2() = default;
 
@@ -171,9 +187,13 @@ public:
 
   void insert(int key, int value) {
     auto bucket_index = get_bucket_index(key);
-    if (buckets[bucket_index].insert(key, value)) {
+    auto *new_node = free_list_head;
+    auto *free_list_next = free_list_head->next;
+    if (buckets[bucket_index].insert(key, value, new_node)) {
       ++num_entries;
+      free_list_head = free_list_next;
     }
+
     // Need to rehash?
     if (should_resize()) {
       grow();
@@ -188,11 +208,14 @@ public:
 
   bool erase(int key) {
     auto bucket_index = get_bucket_index(key);
-    auto did_erase = buckets[bucket_index].erase(key);
-    if (did_erase) {
+    auto *erased_node = buckets[bucket_index].erase(key);
+    if (erased_node != nullptr) {
       --num_entries;
+      erased_node->next = free_list_head;
+      free_list_head = erased_node;
+      return true;
     }
-    return did_erase;
+    return false;
   }
 
   [[nodiscard]]
@@ -201,24 +224,37 @@ public:
   }
   [[nodiscard]]
   bool empty() const {
-    return num_entries == 0;
+    return size() == 0;
   }
 
 private:
   void grow() {
     num_buckets *= 2;
     std::vector<LinkedListV2> new_buckets(num_buckets);
+    std::vector<LinkedListNodeV2> new_allocated_nodes(num_buckets);
+    free_list_head = &new_allocated_nodes.front();
+    auto *current_node = free_list_head;
+    for (auto iter = (new_allocated_nodes.begin() + 1);
+         iter != new_allocated_nodes.end(); ++iter) {
+      auto &node = *iter;
+      current_node->next = &node;
+      current_node = current_node->next;
+    }
+
     // Iterate over our linked list and pushing (key, value) into new linked
     // list based on new hash
-
     for (const auto &old_bucket : buckets) {
       for (const auto &node : old_bucket) {
         auto new_bucket_index = get_bucket_index(node.key);
-        new_buckets[new_bucket_index].force_insert(node.key, node.value);
+        auto *new_node = free_list_head;
+        free_list_head = free_list_head->next;
+        *new_node = LinkedListNodeV2(node.key, node.value);
+        new_buckets[new_bucket_index].force_insert(new_node);
       }
     }
 
     buckets = std::move(new_buckets);
+    allocated_nodes = std::move(new_allocated_nodes);
   }
 
   [[nodiscard]]
@@ -236,4 +272,7 @@ private:
   size_t num_buckets = 16;
   size_t num_entries = 0;
   std::vector<LinkedListV2> buckets;
+
+  std::vector<LinkedListNodeV2> allocated_nodes;
+  LinkedListNodeV2 *free_list_head;
 };
