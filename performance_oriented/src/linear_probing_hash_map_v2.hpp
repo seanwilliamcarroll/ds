@@ -43,8 +43,8 @@ template <double MaxLoad = 0.75> class LinearProbingHashMapV2 {
   };
 
   struct Slot {
-    int key;
-    int value;
+    int key{};
+    int value{};
     SlotState state = SlotState::EMPTY;
   };
 
