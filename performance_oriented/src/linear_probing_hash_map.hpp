@@ -65,6 +65,11 @@ public:
     auto first_tombstone = num_slots;
 
     while (!is_empty(bucket_index)) {
+      auto next_bucket_index = (bucket_index + 1) & (num_slots - 1);
+      if constexpr (UsePrefetching) {
+        __builtin_prefetch(&slot_state[next_bucket_index], 0, 1);
+        __builtin_prefetch(&slots[next_bucket_index], 0, 1);
+      }
       if (is_tombstone(bucket_index)) {
         if (first_tombstone == num_slots) {
           first_tombstone = bucket_index;
@@ -73,7 +78,7 @@ public:
         slots[bucket_index].value = value;
         return;
       }
-      bucket_index = (bucket_index + 1) & (num_slots - 1);
+      bucket_index = next_bucket_index;
     }
     if (first_tombstone < num_slots) {
       bucket_index = first_tombstone;
@@ -97,6 +102,10 @@ public:
     while (is_occupied_but_no_match(bucket_index, key) ||
            is_tombstone(bucket_index)) {
       bucket_index = (bucket_index + 1) & (num_slots - 1);
+      if constexpr (UsePrefetching) {
+        __builtin_prefetch(&slot_state[bucket_index], 0, 1);
+        __builtin_prefetch(&slots[bucket_index], 0, 1);
+      }
       if (bucket_index == original_bucket_index) {
         return std::nullopt;
       }
@@ -113,6 +122,10 @@ public:
     while (is_occupied_but_no_match(bucket_index, key) ||
            is_tombstone(bucket_index)) {
       bucket_index = (bucket_index + 1) & (num_slots - 1);
+      if constexpr (UsePrefetching) {
+        __builtin_prefetch(&slot_state[bucket_index], 0, 1);
+        __builtin_prefetch(&slots[bucket_index], 0, 1);
+      }
     }
     if (is_empty(bucket_index)) {
       return false;
