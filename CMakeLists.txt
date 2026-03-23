@@ -5,7 +5,16 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion)
+# Per-target warning flags — avoids leaking warnings into FetchContent dependencies.
+# Call ds_configure_target(target_name) on every target we own.
+option(DS_WERROR "Treat warnings as errors for our targets" OFF)
+
+function(ds_configure_target target)
+  target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
+  if(DS_WERROR)
+    target_compile_options(${target} PRIVATE -Werror)
+  endif()
+endfunction()
 
 # --- Dependencies via FetchContent ---
 include(FetchContent)

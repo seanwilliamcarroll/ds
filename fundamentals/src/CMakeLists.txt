@@ -1,50 +1,63 @@
 add_executable(coin_change_test coin_change_test.cpp)
 target_link_libraries(coin_change_test GTest::gtest_main)
+ds_configure_target(coin_change_test)
 add_test(NAME coin_change COMMAND coin_change_test)
 
 add_executable(house_robber_test house_robber_test.cpp)
 target_link_libraries(house_robber_test GTest::gtest_main)
+ds_configure_target(house_robber_test)
 add_test(NAME house_robber COMMAND house_robber_test)
 
 add_executable(min_path_sum_test min_path_sum_test.cpp)
 target_link_libraries(min_path_sum_test GTest::gtest_main)
+ds_configure_target(min_path_sum_test)
 add_test(NAME min_path_sum COMMAND min_path_sum_test)
 
 add_executable(number_of_islands_test number_of_islands_test.cpp)
 target_link_libraries(number_of_islands_test GTest::gtest_main)
+ds_configure_target(number_of_islands_test)
 add_test(NAME number_of_islands COMMAND number_of_islands_test)
 
 add_executable(clone_graph_test clone_graph_test.cpp)
 target_link_libraries(clone_graph_test GTest::gtest_main)
+ds_configure_target(clone_graph_test)
 add_test(NAME clone_graph COMMAND clone_graph_test)
 
 add_executable(course_schedule_test course_schedule_test.cpp)
 target_link_libraries(course_schedule_test GTest::gtest_main)
+ds_configure_target(course_schedule_test)
 add_test(NAME course_schedule COMMAND course_schedule_test)
 
 add_executable(network_delay_time_test network_delay_time_test.cpp)
 target_link_libraries(network_delay_time_test GTest::gtest_main)
+ds_configure_target(network_delay_time_test)
 add_test(NAME network_delay_time COMMAND network_delay_time_test)
 
 add_executable(min_heap_test min_heap_test.cpp)
 target_link_libraries(min_heap_test GTest::gtest_main)
+ds_configure_target(min_heap_test)
 add_test(NAME min_heap COMMAND min_heap_test)
 
 add_executable(longest_palindromic_substring_test longest_palindromic_substring_test.cpp)
 target_link_libraries(longest_palindromic_substring_test GTest::gtest_main)
+ds_configure_target(longest_palindromic_substring_test)
 add_test(NAME longest_palindromic_substring COMMAND longest_palindromic_substring_test)
 
 add_executable(knapsack_test knapsack_test.cpp)
 target_link_libraries(knapsack_test GTest::gtest_main)
+ds_configure_target(knapsack_test)
 add_test(NAME knapsack COMMAND knapsack_test)
 
 add_executable(edit_distance_test edit_distance_test.cpp)
 target_link_libraries(edit_distance_test GTest::gtest_main)
+ds_configure_target(edit_distance_test)
 add_test(NAME edit_distance COMMAND edit_distance_test)
 
 add_executable(longest_common_subsequence_test longest_common_subsequence_test.cpp)
 target_link_libraries(longest_common_subsequence_test GTest::gtest_main)
+ds_configure_target(longest_common_subsequence_test)
 add_test(NAME longest_common_subsequence COMMAND longest_common_subsequence_test)
 
 add_executable(network_delay_time_bench network_delay_time_bench.cpp)
 target_link_libraries(network_delay_time_bench benchmark::benchmark)
+ds_configure_target(network_delay_time_bench)
