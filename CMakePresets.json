@@ -6,7 +6,8 @@
       "displayName": "Debug",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "/opt/local/libexec/llvm-21/bin/clang++"
       }
     },
     {
@@ -14,7 +15,8 @@
       "displayName": "Release",
       "binaryDir": "${sourceDir}/build-release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "/opt/local/libexec/llvm-21/bin/clang++"
       }
     },
     {
