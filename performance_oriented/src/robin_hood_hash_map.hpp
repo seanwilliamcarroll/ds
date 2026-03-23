@@ -40,7 +40,7 @@ class RobinHoodHashMap {
 
   static constexpr double MAX_LOAD = MaxLoad;
 
-  using SlotState = std::conditional_t<UseBoolAsState, bool, size_t>;
+  using SlotState = std::conditional_t<UseBoolAsState, bool, uint8_t>;
 
   static constexpr SlotState EMPTY_SLOT = static_cast<SlotState>(0);
   static constexpr SlotState FILLED_SLOT = static_cast<SlotState>(1);
