@@ -46,7 +46,13 @@ Five scenarios, all at load factor 0.75, N=65536:
 | EraseChurn | Steady-state: insert one + erase one, repeat |
 
 All implementations use identity hash (`std::hash<int>` = identity on most
-compilers). Apple Silicon M4, LLVM/Clang 21, -O3.
+compilers[^identity-hash]). Apple Silicon M4, LLVM/Clang 21, -O3.
+
+[^identity-hash]: We confirmed this by compiling a minimal `std::hash<int>`
+program at -O3 and inspecting the assembly. The compiler constant-folds
+`hash(42)` to the literal `42` — no function call, no computation. The hash
+is completely eliminated. See `scripts/verify_identity_hash.sh` for the test
+and assembly output.
 
 ### The three key distributions
 
