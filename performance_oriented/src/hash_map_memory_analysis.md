@@ -1,5 +1,7 @@
 # Hash Map Memory Analysis
 
+All numbers from LLVM/Clang 21.1.8, -O3 on Apple Silicon M4.
+
 ## Measurement Strategy
 
 We use macOS `malloc_size()` to track net heap bytes without tainting allocation
@@ -34,8 +36,9 @@ Bytes per entry at N=65536:
 |---|---|---|---|
 | Chaining | 64 | 64 | 64 |
 | Linear Probing | 18 | 18 | 18 |
-| Robin Hood | 16.25 | 16.25 | 16.25 |
-| std::unordered_map | 57.25 | 44.75 | 44.75 |
+| Robin Hood (uint8_t) | 18 | 18 | 18 |
+| Robin Hood (bool) | 16.2 | 16.2 | 16.2 |
+| std::unordered_map | 57.2 | 44.8 | 44.8 |
 
 ### Why these numbers
 
@@ -50,23 +53,26 @@ factor 0.75, the table is ~1.33x the number of entries, so ~12 bytes per entry f
 slot data. The 18 bytes/entry includes vector overhead and allocator rounding. Constant
 across load factors because the table doubles at the same relative threshold regardless.
 
-**Robin Hood (16.25 bytes/entry):** Similar to linear probing but uses `vector<bool>`
-(bit-packed, ~0.125 bytes per slot) instead of a `uint8_t` state vector. So ~8.125 bytes
-per slot vs LP's 9. The bit-packing saves memory at the cost of slower access (bit
-manipulation per probe). Replacing `vector<bool>` with `vector<uint8_t>` would bring it
-to ~18 bytes/entry, matching linear probing.
+**Robin Hood uint8_t (18 bytes/entry):** Same layout as LP — `vector<uint8_t>` state +
+`vector<pair>` slots = 9 bytes per slot. The default `RobinHoodHashMap` template parameter
+uses uint8_t state, matching LP's memory footprint.
 
-**std::unordered_map (44.75–57.25 bytes/entry):** Chaining implementation with per-node
-heap allocation, but its allocator is more efficient than our naive `make_unique` — 44.75
-bytes vs our 64. The variation across load factors (57.25 at 0.5 vs 44.75 at 0.75/0.9)
+**Robin Hood bool (16.2 bytes/entry):** The `RobinHoodHashMap<load, true>` variant uses
+`vector<bool>` (bit-packed, ~0.125 bytes per slot) instead of uint8_t. So ~8.125 bytes per
+slot vs 9. Saves ~1.8 bytes/entry at the cost of slower access (bit manipulation per
+probe).
+
+**std::unordered_map (44.8–57.2 bytes/entry):** Chaining implementation with per-node
+heap allocation, but its allocator is more efficient than our naive `make_unique` — 44.8
+bytes vs our 64. The variation across load factors (57.2 at 0.5 vs 44.8 at 0.75/0.9)
 comes from the bucket array being larger relative to entries at lower load.
 
 ### Memory vs time tradeoff
 
-Robin Hood is both the most memory-efficient (16.25 bytes/entry) and fastest in most
-scenarios. Chaining uses 4x the memory of Robin Hood and is 14x slower in erase+find.
-The memory advantage compounds the cache advantage — smaller working set means more of the
-table fits in cache.
+Robin Hood (bool variant) is the most memory-efficient at 16.2 bytes/entry, while LP and
+RH (uint8_t) tie at 18 bytes/entry. Chaining uses 3.5x the memory of the open addressing
+implementations and is 15x slower in erase+find. The memory advantage compounds the cache
+advantage — smaller working set means more of the table fits in cache.
 
 ### Erase + find memory (bytes_per_survivor at N=65536)
 
@@ -76,7 +82,8 @@ After inserting 65536 entries and erasing half:
 |---|---|
 | Chaining | 112 |
 | Linear Probing | 36 |
-| Robin Hood | 32.5 |
+| Robin Hood (uint8_t) | 36 |
+| Robin Hood (bool) | 32.4 |
 | std::unordered_map | 57.5 |
 
 Chaining jumps from 64 to 112 bytes per surviving entry — the bucket array is sized for
@@ -84,5 +91,5 @@ Chaining jumps from 64 to 112 bytes per surviving entry — the bucket array is 
 isn't shrunk.
 
 Open addressing tables also don't shrink, but since entries live in the flat slot array
-(no per-entry allocation), the overhead is just unused slots. LP's 36 and RH's 32.5 are
+(no per-entry allocation), the overhead is just unused slots. LP's 36 and RH's 32.4 are
 roughly double their insert-time numbers — the table is half-empty.

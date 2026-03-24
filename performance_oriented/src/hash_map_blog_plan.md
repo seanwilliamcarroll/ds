@@ -9,8 +9,9 @@ result. This series shows the process, including the wrong turns.
 
 Working series title: **"Building a Hash Map from Scratch and Getting Everything Wrong"**
 
-Apple Silicon (M-series), P-core L2 = 16MB, 128-byte cache lines. All implementations are
-`int -> int` with identity hash (`std::hash<int>` = identity on most compilers).
+Apple Silicon M4, P-core L2 = 16MB, 128-byte cache lines. LLVM/Clang 21.1.8, -O3.
+All implementations are `int -> int` with identity hash (`std::hash<int>` = identity on
+most compilers).
 
 ## The Moral (two layers)
 
@@ -112,7 +113,7 @@ The hook: each optimization has a plausible "this should be faster" argument tha
   - What would actually work: batch prefetching (compute N home slots, prefetch all, process)
 - Stored probe distance (optimizing away a 1-cycle operation)
   - Hypothesis: store probe distance in the state byte, eliminate get_home() recomputation
-  - Reality: ~13% slower on insert at all scales, tied or worse everywhere else
+  - Reality: 9-17% slower on insert at all scales, tied or worse everywhere else
   - Why: get_home() with identity hash is one AND instruction. Storing probe distance adds
     bookkeeping during Robin Hood swaps (update both displaced and displacing elements,
     encode/decode with +1 offset). The overhead exceeds the cost of a single AND.
@@ -152,7 +153,7 @@ This post is forward-looking — requires additional implementation work.
 1. ~~**Final scoreboard across all implementations.**~~ **DONE.** See
    `hash_map_final_scoreboard.md`. Single-run data for all 7 implementations across all
    scenarios. New findings: ChainV2 wins EraseChurn (~2.5ns), std wins FindHit_Strided,
-   LP's FindMiss degrades 36% from load 0.5 to 0.9 (primary clustering), open addressing
+   LP's FindMiss is inverted (worst at low load, best at high), open addressing
    converges at 4M random access (35-37M ns). ChainV2 uses 80 bytes/entry (more than
    Chain's 64 — pool pre-allocates).
 
@@ -203,17 +204,19 @@ This post is forward-looking — requires additional implementation work.
 
 Surprises not captured in earlier per-experiment analyses:
 
-1. **std::unordered_map wins FindHit_Strided** (98.7K vs LP's 154K, 1.56x faster). Node-based
+1. **std::unordered_map wins FindHit_Strided** (101K vs LP's 154K, 1.52x faster). Node-based
    layout is immune to clustering — strided keys don't cause cache-line pollution like they do
    in open addressing. This is a great counterexample for Part 1: chaining has a real advantage
    in at least one scenario.
 
-2. **LP's FindMiss degrades 36% from load 0.5 to 0.9** (35.8K → 48.6K). This is the primary
-   clustering penalty we predicted in the hypotheses but didn't see in other scenarios. FindMiss
-   is the scenario that exposes it because you must probe until empty — more occupied slots =
-   longer probe runs. Good data point for the "load factor matters... sometimes" narrative.
+2. **LP's FindMiss load sensitivity is inverted** — worst at low load (48.7K at 0.5) and best
+   at high load (35.7K at 0.9). At low load, the table is mostly empty but LP must probe past
+   tombstones from the benchmark's erase setup; at high load, entries fill the gaps and LP finds
+   empty slots sooner. This inverts the naive "higher load = worse performance" expectation.
+   (Note: with Apple Clang the pattern ran the other direction — compiler codegen can flip
+   which effect dominates.)
 
-3. **ChainV2 wins EraseChurn** (~2.5ns vs RH-bool's ~2.7ns). Pool allocator's push/pop on
+3. **ChainV2 wins EraseChurn** (~2.5ns vs RH-bool's ~2.8ns). Pool allocator's push/pop on
    the free list is marginally faster than Robin Hood's backshift+insert. We previously said
    RH won EraseChurn — that was before ChainV2 existed.
 
@@ -221,7 +224,11 @@ Surprises not captured in earlier per-experiment analyses:
    `num_buckets` nodes, which overshoots when load < 1.0. Speed costs memory. Worth noting
    in the pool allocator discussion.
 
-5. **Open addressing fully converges at 4M random access** (LP 35.9M, RH 36.3M, RH-V2 36.1M,
-   RH-bool 36.7M — all within 2%). Chaining is 1.3x behind (46.5M). std is 2.8x behind (103M).
+5. **Open addressing fully converges at 4M random access** (LP 35.9M, RH 36.6M, RH-V2 37.1M,
+   RH-bool 36.7M — all within 3%). Chaining is 1.3x behind (47.2M). std is 2.9x behind (103M).
    The probe strategy is completely irrelevant when every lookup is a DRAM miss — only data
    layout matters.
+
+6. **RH-bool FindMiss penalty disappeared** — was ~5% slower than RH uint8_t with Apple Clang,
+   now tied (~32.5K across all three RH variants). LLVM-21 generates tighter `vector<bool>`
+   bit extraction code. The bool penalty is now limited to insert-heavy scenarios.

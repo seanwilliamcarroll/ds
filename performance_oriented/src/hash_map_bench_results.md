@@ -7,14 +7,14 @@ All numbers are cpu_time in nanoseconds at N=65536 unless noted.
 
 | Load | Chaining | Linear Probing | Robin Hood | std::unordered_map |
 |------|----------|---------------|------------|-------------------|
-| 0.5 | 1,778,280 | **126,675** | 261,192 | 1,215,470 |
-| 0.75 | 2,215,800 | **131,962** | 308,264 | 1,159,260 |
-| 0.9 | 2,429,540 | **128,692** | 335,820 | 1,191,820 |
+| 0.5 | 1,837,350 | **112,124** | 185,044 | 1,195,600 |
+| 0.75 | 2,274,990 | **117,440** | 197,062 | 1,153,150 |
+| 0.9 | 2,544,960 | **124,948** | 203,755 | 1,195,330 |
 
 **Hypothesis said:** LP fast, RH medium, Chaining medium, std slowest.
 
-**What happened:** LP wins by a massive margin (~14x faster than chaining). RH is second
-(~2.5x slower than LP). But our chaining is actually **slower than std::unordered_map** —
+**What happened:** LP wins by a massive margin (~16x faster than chaining). RH is second
+(~1.7x slower than LP). But our chaining is actually **slower than std::unordered_map** —
 we predicted std would be slowest due to "extra generality overhead," but its allocator is
 better optimized than our raw `make_unique` per node.
 
@@ -25,9 +25,9 @@ factor only controls resize frequency, and at N=65536 the amortized resize cost 
 
 | Load | Chaining | Linear Probing | Robin Hood | std::unordered_map |
 |------|----------|---------------|------------|-------------------|
-| 0.5 | 49,026 | **45,426** | 48,672 | 97,421 |
-| 0.75 | 49,112 | **45,428** | 48,677 | 113,404 |
-| 0.9 | 49,117 | **45,464** | 48,677 | 113,552 |
+| 0.5 | 49,135 | **45,429** | 48,662 | 97,343 |
+| 0.75 | 49,008 | **45,423** | 48,672 | 98,990 |
+| 0.9 | 49,037 | **45,433** | 48,682 | 102,250 |
 
 **Hypothesis said:** RH fast (early termination + uniform probes), LP medium, Chaining slow.
 At 0.9 we predicted LP "slow — primary clustering is brutal" and chaining closing the gap.
@@ -45,27 +45,32 @@ addressing — it didn't materialize.
 
 | Load | Chaining | Linear Probing | Robin Hood | std::unordered_map |
 |------|----------|---------------|------------|-------------------|
-| 0.5 | 35,245 | 41,120 | **34,070** | 48,714 |
-| 0.75 | 36,234 | 37,206 | **34,104** | 86,137 |
-| 0.9 | 35,305 | 37,811 | **34,106** | 86,333 |
+| 0.5 | 36,133 | 48,650 | **32,446** | 48,685 |
+| 0.75 | 35,690 | 38,356 | **32,450** | 76,659 |
+| 0.9 | 36,263 | 35,700 | **32,454** | 80,244 |
 
 **Hypothesis said:** RH fast, LP medium, Chaining slow (at all loads).
 
 **What happened:** RH does win as predicted — early termination is genuinely helpful for
 misses. But we had the chaining/LP ranking **backwards**: chaining is second, LP is third.
-An empty bucket in chaining is an immediate "not found" with no probe. LP has to walk
-through clusters before hitting an empty slot, which is slower.
+An empty bucket in chaining is an immediate "not found" with no probe.
 
-std::unordered_map degrades sharply from load 0.5 (48k) to 0.75 (86k). Our implementations
-barely budge.
+LP shows an unexpected load factor pattern: it's **worst at low load** (49K at 0.5) and
+**best at high load** (36K at 0.9). At low load, the table is mostly empty but LP must
+probe past tombstones left from the benchmark's erase setup phase; at high load, more
+entries fill the gaps and LP finds empty slots sooner via sequential scan. This inverts
+the naive expectation that higher load = worse performance for open addressing.
+
+std::unordered_map degrades sharply from load 0.5 (49K) to 0.75 (77K). Our custom
+implementations are far more stable.
 
 ## Erase + Find Survivors
 
 | Load | Chaining | Linear Probing | Robin Hood | std::unordered_map |
 |------|----------|---------------|------------|-------------------|
-| 0.5 | 289,936 | **20,872** | 25,376 | 338,950 |
-| 0.75 | 288,903 | **20,886** | 25,376 | 339,195 |
-| 0.9 | 293,879 | **20,937** | 25,390 | 350,679 |
+| 0.5 | 301,312 | **20,936** | 25,835 | 357,795 |
+| 0.75 | 312,021 | **20,919** | 25,778 | 347,278 |
+| 0.9 | 311,618 | **20,918** | 25,794 | 347,389 |
 
 **Hypothesis said:** LP slow (tombstones degrade find), RH fast (backshift keeps chains
 clean), Chaining medium.
@@ -85,17 +90,17 @@ factor difference between a cache hit and a cache miss dwarfs it.
 
 | Load | Chaining | Linear Probing | Robin Hood | std::unordered_map |
 |------|----------|---------------|------------|-------------------|
-| 0.5 | 14.39 | 5.41 | **2.74** | 19.09 |
-| 0.75 | 14.89 | 5.67 | **2.92** | 21.13 |
-| 0.9 | 15.04 | 5.47 | **2.99** | 19.27 |
+| 0.5 | 14.56 | 5.59 | **4.32** | 18.53 |
+| 0.75 | 14.69 | 5.49 | **4.18** | 18.64 |
+| 0.9 | 14.80 | 5.56 | **3.95** | 18.50 |
 
 (cpu_time in ns **per iteration**, not per N elements)
 
 **Hypothesis said:** LP fast (O(1) tombstone flip), RH slow (O(k) backshift per erase),
 Chaining medium. This was supposed to be the scenario where Robin Hood suffers.
 
-**What happened:** Robin Hood is **2x faster than LP** and the fastest overall. This is our
-biggest prediction miss.
+**What happened:** Robin Hood is **~1.3x faster than LP** and the fastest overall. This is
+our biggest prediction miss.
 
 Why backshift wins in steady-state churn: Robin Hood keeps probe distances uniform and
 short, so backshift after erase typically moves 0-2 elements. The table stays clean — no
@@ -104,11 +109,15 @@ but tombstones accumulate between rehashes. Each insert must probe past tombston
 verify the key doesn't already exist, even when reusing the first tombstone slot. The
 cheap erase shifts cost to the insert half of the churn cycle.
 
+Note: the absolute times here are sub-6ns for both LP and RH — all within a few cache-hit
+probe operations. The RH-bool variant (vector\<bool\> state) achieves ~2.75ns, nearly
+matching the original LP prediction, but the uint8_t Robin Hood shown here already wins.
+
 ## Overarching Lessons
 
 **Cache locality dominates everything at scale.** The difference between flat-array
-probing and pointer-chasing is 10-14x in erase+find. Algorithmic refinements (tombstones
-vs backshift, early termination, probe variance) produce 1.2-2x differences within the
+probing and pointer-chasing is 15x in erase+find. Algorithmic refinements (tombstones
+vs backshift, early termination, probe variance) produce 1.2-1.3x differences within the
 open addressing family. The data layout choice (open addressing vs chaining) is the
 decision that matters most.
 

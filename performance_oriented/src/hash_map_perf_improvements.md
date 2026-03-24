@@ -47,35 +47,35 @@ The shift (high bits) vs mask (low bits) distinction matters — low bits have w
 entropy from the multiply. Store a `shift_` member updated on grow instead of
 computing `log2` per probe.
 
-## 4. Store probe distance in slot (Robin Hood) — TODO (proceed with caution)
+## 4. Store probe distance in slot (Robin Hood) — DONE (net negative)
 
-Robin Hood currently recomputes `probe_distance(getHome(key), current_slot)` at every
-probe step during insert, find, and erase. This involves a hash computation and modular
-arithmetic per probe.
+**Status:** Implemented in RobinHoodHashMapV2. Stores probe distance in the uint8_t
+state byte (0 = empty, 1+ = probe distance + 1), eliminating the `get_home()`
+recomputation during probing.
 
-Storing the probe distance (or home index) directly in each slot eliminates the
-recomputation. The Robin Hood swap decision becomes a single integer comparison. This
-adds 1-4 bytes per slot but removes a hash + mod per probe step.
+**Results:** 9–17% slower on insert at all scales and load factors. Tied or marginally
+worse everywhere else. The bookkeeping of updating stored distances during Robin Hood
+swaps (both displaced and displacing elements) costs more than the single AND instruction
+it eliminates — `get_home()` with identity hash is essentially free.
 
-**Tradeoff:** increases slot size (hurts cache density) but reduces per-probe compute.
-Most impactful at high load factors where probe chains are long.
+**Verdict:** Not worth it with identity hash. Would only help with expensive hash
+functions (Fibonacci multiply+shift, cryptographic) where eliminating a hash call per
+probe step saves real cycles. See `hash_map_robin_hood_three_way_analysis.md`.
 
-**Caution:** Finding #2 showed that adding bytes per slot has real cache cost. The
-state array's density is critical. If probe distance is stored alongside state in the
-metadata array (not merged with key-value), the cost may be acceptable — but benchmark
-carefully.
+## 5. Prefetching — DONE (no improvement)
 
-## 5. Prefetching — TODO
+**Status:** Tested `__builtin_prefetch` for the next probe slot during linear probing.
 
-When probing linearly, the next slot to check is predictable. Issuing a
-`__builtin_prefetch` for the next probe position while processing the current one
-hides memory latency. At large table sizes where the working set exceeds L2/L3 cache,
-this can significantly reduce stall cycles.
+**Results:** 0% improvement across all scenarios, including at 4M entries (fully
+cache-cold, ~50MB table exceeding the 16MB L2). The probe loop body is ~3–5 cycles,
+but a prefetch to DRAM takes 100+ cycles — the prefetched data hasn't arrived by the
+time the next iteration needs it. Average probe chain length is ~2.5 slots, so
+prefetching further ahead wastes effort on slots never visited. The hardware prefetcher
+already handles sequential access patterns (identity hash + sequential keys).
 
-**Tradeoff:** prefetching adds instruction overhead and is only useful when the table
-doesn't fit in cache. Our large-scale benchmarks (1<<22 = 4M entries, ~50MB table)
-are fully cache-cold on Apple Silicon (P-core L2 = 16MB) — prefetching should help
-most there.
+**What would actually work:** Batch prefetching — compute N home slots upfront,
+prefetch all, then process. This amortizes the latency across lookups rather than
+across probe steps. See `hash_map_prefetching_analysis.md`.
 
 ## 6. Pool allocator for chaining — DONE
 

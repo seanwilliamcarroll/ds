@@ -3,7 +3,7 @@
 Comparing three variants of the Robin Hood hash map. All use SoA layout (separate
 state and key-value arrays) and identical Robin Hood insertion + backshift deletion.
 
-Apple Silicon, P-core L2 = 16MB, 128-byte cache lines.
+Apple Silicon M4, P-core L2 = 16MB, 128-byte cache lines. LLVM/Clang 21.1.8, -O3.
 
 ## The three variants
 
@@ -22,9 +22,9 @@ by avoiding a hash + mask per probe step. It wasn't.
 
 | Load | V1 uint8_t | V1 bool | V2 stored PD | uint8_t vs bool | uint8_t vs V2 |
 |---|---|---|---|---|---|
-| 0.5 | 183K ns | 265K ns | 204K ns | 1.45x faster | 1.11x faster |
-| 0.75 | 196K ns | 313K ns | 223K ns | 1.60x faster | 1.14x faster |
-| 0.9 | 204K ns | 340K ns | 236K ns | 1.67x faster | 1.16x faster |
+| 0.5 | 185K ns | 265K ns | 201K ns | 1.43x faster | 1.09x faster |
+| 0.75 | 197K ns | 312K ns | 224K ns | 1.58x faster | 1.14x faster |
+| 0.9 | 204K ns | 338K ns | 239K ns | 1.66x faster | 1.17x faster |
 
 V1 uint8_t is the fastest inserter. V2's stored probe distance adds overhead
 maintaining the value during Robin Hood displacement swaps — you have to update
@@ -42,29 +42,38 @@ bookkeeping costs more than the `get_home()` call it eliminates.
 Sequential key lookup is dominated by the key comparison. The state check and
 probe distance computation are negligible.
 
-### FindMiss — uint8_t and V2 tied, bool ~5% slower
+### FindMiss — all three tied
 
 | Load | V1 uint8_t | V1 bool | V2 stored PD |
 |---|---|---|---|
-| 0.5 | 32.5K ns | 34.1K ns | 32.4K ns |
-| 0.75 | 32.4K ns | 34.1K ns | 32.5K ns |
-| 0.9 | 32.5K ns | 34.1K ns | 32.4K ns |
+| 0.5 | 32.4K ns | 32.6K ns | 32.5K ns |
+| 0.75 | 32.5K ns | 32.5K ns | 32.5K ns |
+| 0.9 | 32.5K ns | 32.5K ns | 32.5K ns |
 
-FindMiss probes until hitting an empty slot or early-terminating on probe distance.
-The bit manipulation overhead of `vector<bool>` shows up here since the state check
-is the dominant operation per probe step.
+All three variants are within measurement noise. With Apple Clang, V1 bool was
+~5% slower here (34.1K vs 32.5K) — LLVM-21 generates tighter code for the
+`vector<bool>` bit extraction, eliminating the penalty. The early termination on
+probe distance dominates regardless of state representation.
 
 ### EraseAndFind — all tied
 
-~25.5K ns across all variants and load factors.
+| Load | V1 uint8_t | V1 bool | V2 stored PD |
+|---|---|---|---|
+| 0.5 | 25.8K ns | 25.4K ns | 25.8K ns |
+| 0.75 | 25.8K ns | 25.4K ns | 25.8K ns |
+| 0.9 | 25.8K ns | 25.4K ns | 25.8K ns |
+
+~25.4–25.8K ns across all variants and load factors. Bool has a marginal edge
+(~1.5% faster), likely from the smaller state array improving cache utilization
+during the interleaved erase+find pattern.
 
 ### EraseChurn — bool is fastest, tiny absolute times
 
 | Load | V1 uint8_t | V1 bool | V2 stored PD |
 |---|---|---|---|
-| 0.5 | 4.23 ns | 2.71 ns | 4.20 ns |
-| 0.75 | 3.97 ns | 2.67 ns | 3.68 ns |
-| 0.9 | 4.01 ns | 2.68 ns | 3.67 ns |
+| 0.5 | 4.4 ns | 2.8 ns | 4.4 ns |
+| 0.75 | 4.3 ns | 2.8 ns | 4.2 ns |
+| 0.9 | 4.0 ns | 2.8 ns | 4.0 ns |
 
 Bool wins this tight insert+erase churn loop by ~1.5x. The `vector<bool>` proxy
 swap appears cheaper than byte swaps in this specific pattern, or the compiler
@@ -75,10 +84,10 @@ Absolute times are sub-5ns, so this is not practically significant.
 
 | Scenario | V1 uint8_t | V1 bool | V2 stored PD |
 |---|---|---|---|
-| Insert Random | 1.01M ns | 1.10M ns | 1.03M ns |
-| FindHit Random | 147K ns | 166K ns | 167K ns |
-| Insert Strided | 489K ns | 594K ns | 498K ns |
-| FindHit Strided | 139K ns | 177K ns | 137K ns |
+| Insert Random | 1.07M ns | 1.12M ns | 1.08M ns |
+| FindHit Random | 151K ns | 166K ns | 184K ns |
+| Insert Strided | 492K ns | 593K ns | 497K ns |
+| FindHit Strided | 139K ns | 171K ns | 138K ns |
 
 V1 uint8_t wins or ties everywhere. Random/strided keys create longer probe chains,
 amplifying the per-probe overhead of `vector<bool>`. V2's stored probe distance
@@ -91,31 +100,31 @@ because the stored byte adds a data dependency the branch predictor can't hide.
 
 | Entries | V1 uint8_t | V1 bool | V2 stored PD | uint8_t vs bool | uint8_t vs V2 |
 |---|---|---|---|---|---|
-| 65K | 196K ns | 319K ns | 226K ns | 1.63x | 1.15x |
-| 262K | 799K ns | 1.27M ns | 902K ns | 1.59x | 1.13x |
-| 2M | 6.56M ns | 10.7M ns | 7.62M ns | 1.63x | 1.16x |
-| 4M | 13.4M ns | 22.5M ns | 15.1M ns | 1.68x | 1.13x |
+| 65K | 197K ns | 319K ns | 228K ns | 1.62x | 1.16x |
+| 262K | 786K ns | 1.28M ns | 895K ns | 1.63x | 1.14x |
+| 2M | 6.79M ns | 11.3M ns | 7.60M ns | 1.66x | 1.12x |
+| 4M | 13.8M ns | 23.3M ns | 14.7M ns | 1.69x | 1.07x |
 
-V1 uint8_t maintains a consistent ~13% lead over V2 at all scales. Bool falls
+V1 uint8_t maintains a consistent ~1.1-1.2x lead over V2 at all scales. Bool falls
 further behind at scale (1.6-1.7x).
 
 ### FindHit — all identical at scale
 
 | Entries | V1 uint8_t | V1 bool | V2 stored PD |
 |---|---|---|---|
-| 65K | 48.7K ns | 48.7K ns | 48.7K ns |
-| 262K | 195K ns | 195K ns | 195K ns |
+| 65K | 48.7K ns | 49.3K ns | 48.7K ns |
+| 262K | 195K ns | 196K ns | 195K ns |
 | 2M | 1.56M ns | 1.56M ns | 1.56M ns |
-| 4M | 3.12M ns | 3.12M ns | 3.12M ns |
+| 4M | 3.12M ns | 3.16M ns | 3.12M ns |
 
 ### FindHit Random — all converge at scale
 
 | Entries | V1 uint8_t | V1 bool | V2 stored PD |
 |---|---|---|---|
-| 65K | 150K ns | 170K ns | 160K ns |
-| 262K | 1.01M ns | 1.03M ns | 1.03M ns |
-| 2M | 15.6M ns | 15.3M ns | 15.4M ns |
-| 4M | 36.4M ns | 36.7M ns | 36.0M ns |
+| 65K | 135K ns | 158K ns | 180K ns |
+| 262K | 1.01M ns | 1.03M ns | 1.08M ns |
+| 2M | 15.5M ns | 15.3M ns | 15.8M ns |
+| 4M | 36.6M ns | 36.7M ns | 37.1M ns |
 
 At large scale with random access, all variants converge — cache misses dominate
 everything else.
@@ -146,12 +155,12 @@ a multiply + shift). But with identity hash, there's nothing to save.
 |---|---|---|
 | Insert (all scales) | V1 uint8_t | 1.1-1.2x over V2, 1.4-1.7x over bool |
 | FindHit (sequential) | Tied | |
-| FindMiss | V1 uint8_t ≈ V2 | Both ~5% over bool |
+| FindMiss | Tied | All three within noise |
 | FindHit (random/strided) | V1 uint8_t | Slight edge |
 | EraseChurn | Bool | 1.5x, sub-5ns absolute |
-| Large Insert | V1 uint8_t | Consistent ~13% over V2 |
+| Large Insert | V1 uint8_t | Consistent ~1.1x over V2 |
 
 The `vector<bool>` → `vector<uint8_t>` change from the previous experiment remains
-the clear win. Adding stored probe distance on top was a net negative — a reminder
-that optimizing away cheap operations can make things worse if the bookkeeping cost
-exceeds what you save.
+the clear win for insert-heavy workloads. Adding stored probe distance on top was
+a net negative — a reminder that optimizing away cheap operations can make things
+worse if the bookkeeping cost exceeds what you save.
