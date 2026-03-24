@@ -2,10 +2,9 @@
 
 ## Hook
 
-We wrote detailed predictions for 5 scenarios x 3 load factors before running any
-benchmarks. The predictions were thoughtful, well-reasoned, and wrong in almost every
-way that mattered. This post walks through the predictions and the data, scenario by
-scenario.
+We (a human learning performance engineering and an LLM) wrote predictions for
+5 benchmark scenarios before running any code. The predictions were reasonable and
+wrong in almost every way that mattered.
 
 (Invite the reader to form their own predictions before scrolling past the results.)
 
@@ -17,159 +16,239 @@ scenario.
 
 Brief descriptions — just enough for readers to reason about tradeoffs:
 
-1. **Chaining** — separate chaining with linked list per bucket, `make_unique` per node
+1. **Chaining** — separate chaining, linked list per bucket, `make_unique` per node
 2. **Linear Probing** — open addressing, tombstone deletion, SoA layout (separate
    state array + key-value array)
-3. **Robin Hood** — open addressing, Robin Hood insertion (swap with shorter probe
-   distance), backshift deletion (no tombstones), SoA layout, `vector<bool>` state
-4. **std::unordered_map** — stdlib wrapper, included as a baseline
+3. **Robin Hood** — open addressing, Robin Hood insertion (displace elements with
+   shorter probe distance), backshift deletion (no tombstones), SoA layout,
+   `vector<bool>` state
+4. **std::unordered_map** — stdlib wrapper, baseline
 
-Key design choice to call out: SoA layout. State array is separate from key-value
-array. This will matter. (Don't explain why yet — let the data reveal it.)
+Design choice to mention: SoA layout. I (Sean) instinctively reached for separate
+arrays to avoid struct padding waste. The cache behavior implications weren't on
+my mind — that understanding came later from the data. (Don't explain the cache
+angle yet.)
 
-### The benchmark scenarios
+For Robin Hood, I used `vector<bool>` because I knew it was space-efficient. I
+didn't consider the per-probe cost of bit manipulation. That shows up later.
 
-Brief table of the 5 original scenarios (Insert, FindHit, FindMiss, EraseAndFind,
-EraseChurn) with one-line descriptions. Link to or footnote the full scenario
-descriptions for interested readers.
+### The scenarios
 
-Mention: sequential keys with identity hash (`std::hash<int>` = identity). This is
-the best case for open addressing. We'll break this assumption in later posts.
+Brief table of the 5 scenarios at load factor 0.75:
 
-### The machine
+| Scenario | What's timed |
+|---|---|
+| Insert | Insert N sequential keys into empty map |
+| FindHit | Find all N keys (all hits) |
+| FindMiss | Find N keys that don't exist |
+| EraseAndFind | Erase half the entries, then find survivors |
+| EraseChurn | Steady-state: insert one, erase one, repeat |
 
-One line: Apple Silicon M4, LLVM/Clang 21, -O3. Link to environment doc for details.
+Sequential keys with identity hash (`std::hash<int>` = identity on most compilers).
+This is the best case for open addressing — we'll break this assumption later.
+
+N = 65536. Apple Silicon M4, LLVM/Clang 21, -O3.
 
 ---
 
 ## Section 2: The Predictions
 
-Present the prediction matrices verbatim (from `hash_map_bench_hypotheses.md`), or a
-cleaned-up version. Three tables (load 0.5, 0.75, 0.9) with fast/medium/slow ratings
-and the short reasoning.
+### What we knew going in
 
-Also present the "Key Predictions" summary — the overarching beliefs:
-- Load 0.5: LP wins everything
-- Load 0.75: RH starts pulling ahead on finds
-- Load 0.9: Chaining becomes competitive, LP's clustering is devastating
-- std always slowest
-- Erase churn: LP's O(1) tombstone beats RH's O(k) backshift
+I knew chaining and had heard the complaints about std::unordered_map being slow.
+LP and RH were new to me. Claude provided the textbook analysis of clustering,
+probe distances, and tombstone behavior.
 
-End with: "Let's see what actually happened."
+My concerns:
+- **RH insert/delete**: the displacement chains and backshifting sounded expensive
+- **LP find**: wouldn't clusters degrade lookup?
+
+Claude's concerns:
+- **Load 0.9**: "primary clustering is brutal" for LP, chaining should close the gap
+- **EraseChurn**: RH's O(k) backshift per erase should lose to LP's tombstone flip
+
+### The prediction matrix (load 0.75)
+
+One table. fast/medium/slow with one-line reasoning per cell. Cleaned up from the
+raw hypotheses doc — keep it scannable.
+
+| Scenario | Chaining | LP | RH | std |
+|---|---|---|---|---|
+| Insert | medium | fast | medium — swap overhead | slow |
+| FindHit | slow — pointer chase | medium — clusters forming | fast — uniform probes | slow |
+| FindMiss | slow — walk full chain | medium | fast — early termination | slow |
+| EraseAndFind | medium | slow — tombstones degrade find | fast — backshift keeps table clean | medium |
+| EraseChurn | medium | fast — tombstone flip | slow — O(k) backshift | medium |
+
+### Aside: what does "expected probes" mean?
+
+In open addressing, every operation starts by probing slots until you find what
+you're looking for (or an empty slot). The expected number of probes depends on
+how full the table is — the load factor α:
+
+| Load factor (α) | Expected probes: 1/(1-α) |
+|---|---|
+| 0.5 (half full) | 2 |
+| 0.75 | 4 |
+| 0.9 | 10 |
+| 0.99 | 100 |
+
+Intuition: each probe has a (1-α) chance of hitting an empty slot. At 75% full,
+there's a 25% chance each probe lands on empty, so on average you need 4 tries.
+As the table fills up, empty slots get scarce and probe chains get long — that's
+why we expected high load factors to hurt.
+
+(This is for uniform/random hashing. Linear probing is worse in theory because
+of clustering — occupied slots clump together, so you don't get independent
+(1-α) chances per probe. But as we'll see, the theory overstates this.)
+
+### Key beliefs
+
+- Chaining degrades gracefully; open addressing has sharp failure modes at high load
+- std always slowest (chaining + stdlib overhead)
+- EraseChurn is where RH pays for its complexity
+
+"Let's see what actually happened."
 
 ---
 
-## Section 3: The Results (scenario by scenario)
+## Section 3: The Results
 
-For each scenario: show the table, then "what we predicted" vs "what happened" with
-analysis. Build toward the overarching lesson rather than revealing it upfront.
+For each scenario: the numbers, what we expected, what happened, and why. Each
+surprise builds toward the overarching lesson without stating it upfront.
 
-### Insert — LP wins, but the gap is wrong
+### Insert — LP wins, but the magnitudes are wrong
 
-- Prediction: LP fast, RH medium, Chaining medium, std slowest.
-- Reality: LP wins by **16x** over chaining, not 2-3x. RH second at 1.7x.
-- Surprise: our chaining is slower than std (we predicted the opposite).
-  - Why: std's allocator is better than our `make_unique` per node.
-  - Lesson preview: allocation strategy matters more than algorithm for chaining.
-- Load factor barely matters for any custom implementation.
+| Implementation | cpu_time (ns) |
+|---|---:|
+| LP | 117K |
+| RH | 197K |
+| std | 1.15M |
+| Chain | 2.27M |
 
-### FindHit — the "load factor doesn't matter" shock
+- We got the ranking half right: LP is fastest.
+- The magnitude is shocking: LP is **16x** faster than chaining. We expected 2-3x.
+- Our chaining is slower than std — we predicted the opposite. std's allocator
+  handles per-node allocation better than raw `make_unique`.
+- RH's displacement overhead is real (1.7x slower than LP) but not crippling.
 
-- Prediction: RH fast (early termination), LP medium, Chaining slow at 0.75/0.9.
-  At 0.9 we predicted LP "slow — primary clustering is brutal."
-- Reality: all three custom implementations within 8%. LP has a slight edge. Load
-  factor has **zero** effect on our implementations.
-- This is the first big surprise. We built three full prediction matrices for
-  load sensitivity that didn't materialize.
-- Why: at N=65536 the table doesn't fit in L1/L2 regardless of fill level. The
-  dominant cost is cache misses per lookup, not probe chain length.
+### FindHit — everything is the same
+
+| Implementation | cpu_time (ns) |
+|---|---:|
+| LP | 45.4K |
+| RH | 48.7K |
+| Chain | 49.0K |
+| std | 99.0K |
+
+- We predicted RH fastest (early termination, uniform probes). It's tied with
+  chaining. LP has a slight edge.
+- All three custom implementations are within 8% of each other.
+- The prediction that clustering would hurt LP at 0.75: wrong. The table is ~780KB
+  at this size — doesn't fit in L1 (128KB). Cache misses per lookup dominate
+  probe chain length.
 
 ### FindMiss — we got the ranking backwards
 
-- Prediction: RH fast, LP medium, Chaining slow.
-- Reality: RH does win (early termination is real for misses). But **chaining is
-  second, not LP.** An empty bucket is an instant "not found."
-- LP's load factor pattern is inverted: worst at 0.5 (49K), best at 0.9 (36K).
-  - Why: tombstones from the benchmark's erase setup phase. At low load, LP probes
-    past tombstones; at high load, real entries fill the gaps.
-  - This is counterintuitive and worth dwelling on.
+| Implementation | cpu_time (ns) |
+|---|---:|
+| RH | 32.5K |
+| Chain | 35.7K |
+| LP | 38.4K |
+| std | 76.7K |
 
-### EraseAndFind — the prediction we were most wrong about
+- RH wins as predicted — early termination is genuinely helpful for misses.
+- But **chaining is second, not LP.** An empty bucket in chaining is an instant
+  "not found" — no probing at all. We had chaining as "slow" here.
+- LP is last among custom implementations. Tombstones from the benchmark's
+  erase setup extend probe runs for miss lookups.
 
-- Prediction: LP slow (tombstones degrade find), RH fast (backshift keeps chains
-  clean), Chaining medium.
-- Reality: LP is **fastest** (20.9K), 14x faster than chaining. RH close behind.
-- The hypothesis dramatically overstated tombstone damage. Cache-friendly flat-array
-  scanning through tombstones easily beats pointer-chasing through scattered heap nodes.
-- **This is the clearest result**: cache locality >> algorithmic elegance. The
-  algorithmic argument (tombstones degrade probing) is correct in theory but
-  irrelevant because the constant factor of a cache miss dwarfs it.
+### EraseAndFind — the prediction we were most confident about, and most wrong
+
+| Implementation | cpu_time (ns) |
+|---|---:|
+| LP | 20.9K |
+| RH | 25.8K |
+| Chain | 312K |
+| std | 347K |
+
+- We predicted: LP slow (tombstones degrade find), RH fast (clean table), Chaining
+  medium.
+- Reality: LP is **fastest**. 15x faster than chaining. RH close behind.
+- Tombstone damage is real in theory — but scanning through tombstones in a flat
+  array is cache-friendly. Pointer-chasing through scattered heap nodes is not.
+  The constant factor of a cache miss dwarfs the algorithmic difference.
+- **This is the clearest result in the entire benchmark.** We can talk about probe
+  chain lengths and tombstone degradation all day, but a flat array scan is just
+  fundamentally faster than following pointers to random memory locations.
 
 ### EraseChurn — the biggest prediction miss
 
-- Prediction: LP fast (O(1) tombstone flip), RH slow (O(k) backshift). This was
-  supposed to be where Robin Hood suffers.
-- Reality: RH is **1.3x faster than LP** and the fastest overall.
-- Why: in steady-state churn, backshift keeps probe distances short. No tombstones
-  accumulate. The paired insert after each erase has short probes. LP's cheap erase
-  shifts cost to the insert half (must probe past tombstones to check for duplicates).
-- The O(1) vs O(k) analysis was correct per-operation but missed the steady-state
-  interaction between erase and insert.
+| Implementation | cpu_time (ns/iter) |
+|---|---:|
+| RH | 4.2 |
+| LP | 5.5 |
+| Chain | 14.7 |
+| std | 18.6 |
+
+- We predicted: LP fast (tombstone flip is cheap), RH slow (backshift is O(k)).
+  This was supposed to be where RH suffers.
+- Reality: **RH is 1.3x faster than LP.**
+- Why: we analyzed erase and insert as independent operations. In steady-state
+  churn, they interact. RH's backshift keeps the table clean — no tombstones
+  accumulate, so the next insert finds a short probe. LP's cheap tombstone erase
+  pollutes the table, making the paired insert probe past dead slots.
+- The per-operation complexity was technically correct but missed the system-level
+  behavior. (And "O(1) tombstone flip" is only the marking — finding the element
+  to erase is still O(1/(1-α)) probing, same as RH.)
 
 ---
 
-## Section 4: Why We Were Wrong
+## Section 4: What We Learned
 
-Pull together the three themes that explain most of the prediction failures:
+Three themes that explain most of the prediction failures.
 
-### 1. Cache locality dominates algorithmic differences
+### Cache locality dominates algorithmic differences
 
-The gap between flat-array probing and pointer-chasing is 15x in EraseAndFind.
-Algorithmic refinements (tombstones vs backshift, early termination, probe variance)
-produce 1.2-1.3x differences within the open addressing family. The data layout
-choice — open addressing vs chaining — is the decision that matters.
+Flat-array probing vs pointer-chasing: 15x gap (EraseAndFind). Algorithmic
+refinements within open addressing (tombstones vs backshift, early termination):
+1.2-1.3x differences. The data layout choice is the decision that matters most.
 
-We were reasoning about probe chain lengths and O(k) backshifts when we should have
-been reasoning about cache lines.
+We were reasoning about probe chain lengths when we should have been reasoning
+about cache lines.
 
-### 2. Load factor sensitivity was overstated
+### Load factor is a second-order effect at realistic sizes
 
-We built three full prediction matrices expecting dramatic degradation at 0.9. The
-custom implementations are nearly identical across all three load factors. At N=65536,
-cache miss cost dominates probe length. Load factor would matter at sizes fitting in
-L2, but for realistic table sizes it's a second-order effect.
+(Brief aside — don't belabor. One paragraph + a small comparison showing all
+three loads are within ~5% for custom implementations. The point: at table sizes
+that don't fit in L1/L2, cache miss cost dominates probe length. Load factor
+matters more at small sizes where extra probes are cheap cache hits.)
 
-### 3. Steady-state behavior ≠ per-operation analysis
+### Per-operation analysis misses system-level behavior
 
-The EraseChurn prediction analyzed erase and insert separately: O(1) erase + O(1)
-insert for LP, O(k) erase + O(1) insert for RH. But in steady state, LP's tombstones
-accumulate between rehashes, making the insert side expensive. RH's expensive erase
-keeps the table clean, making the insert side cheap. The system-level behavior inverted
-the per-operation ranking.
+EraseChurn: O(1) erase + O(1/(1-α)) insert for LP, O(k) erase + short insert
+for RH. The per-operation ranking said LP wins. The steady-state interaction —
+tombstones degrading future inserts — inverted it.
 
 ---
 
 ## Section 5: Closing
 
-Summarize: performance intuition is unreliable. Thoughtful, well-reasoned predictions
-were wrong in the ways that mattered most. The recurring lesson is that performance is
-empirical.
+Performance intuition is unreliable. The standard CS mental model (load factor
+sensitivity, tombstone degradation, O(k) backshift cost) is correct in isolation
+but incomplete — it doesn't account for cache behavior or system-level interactions.
 
-Tease Part 2: "So open addressing wins, SoA layout is the key insight, and the obvious
-next optimization is... to merge the arrays for even better locality. Right?" (This is
-the AoS disaster from Part 2.)
+Tease Part 2: "So open addressing wins and SoA layout is the key insight. The
+obvious next step is to merge the arrays for even better locality. Right?"
 
 ---
 
-## Open Questions / Things to Decide
+## Open Questions
 
-- **How much code to show?** The implementations are header-only. Show the hot loop
-  for LP find? The Robin Hood swap? Or keep it conceptual and link to the repo?
-- **Prediction matrix format:** The raw hypotheses doc has prose per cell. Clean up
-  to just fast/medium/slow + one-line reason? Or include the full reasoning?
-- **Where to put the data?** Inline tables (as in bench_results.md) or charts? The
-  tables are information-dense but charts are more scannable.
-- **Tone:** The blog plan says "showing the process, including the wrong turns." How
-  self-deprecating vs analytical? I'm leaning analytical — the predictions were
-  reasonable given standard CS education, the point is that the standard mental model
-  is incomplete.
+- **How much code to show?** Leaning toward: one diagram showing SoA layout (state
+  array separate from KV array), brief code snippet of the LP find loop. Keep RH
+  conceptual. Link to repo for full implementations.
+- **Charts vs tables?** Tables are more precise. Could do both — chart for the
+  visual comparison, table in a footnote or appendix for exact numbers.
+- **The Part 2 tease** sets up the AoS disaster. Is it too cute? Or does it land
+  well as a cliffhanger?
