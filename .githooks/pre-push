@@ -9,7 +9,22 @@ if git rev-parse --verify @{u} &>/dev/null; then
     fi
 fi
 
-echo "==> pre-push: clean build with check preset and running tests"
+# Check if any C++/CMake files changed since last push.
+# For first push (no upstream), always run checks.
+cpp_changed=true
+if git rev-parse --verify @{u} &>/dev/null; then
+    changed_files=$(git diff --name-only @{u}..HEAD)
+    if ! echo "$changed_files" | grep -qE '\.(cpp|hpp)$|CMakeLists\.txt'; then
+        cpp_changed=false
+    fi
+fi
+
+if [ "$cpp_changed" = false ]; then
+    echo "==> pre-push: no C++/CMake changes, skipping build/test/tidy"
+    exit 0
+fi
+
+echo "==> pre-push: C++/CMake changes detected, running full checks"
 
 # Stash uncommitted changes so the build tests exactly what's being pushed
 stashed=false
