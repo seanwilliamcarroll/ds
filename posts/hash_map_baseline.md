@@ -21,27 +21,15 @@ the literal 42. At -O0 it emits a function call, but the function body is
 `ldrsw x0, [sp, #4]; ret` — load the int, sign-extend to `size_t`, return it.
 See `scripts/verify_identity_hash.sh`.
 
-1. **Chaining** — separate chaining with a linked list per bucket. Each node is
-   heap-allocated with `make_unique`.
-
-2. **Linear Probing (LP)** — open addressing with tombstone deletion. Uses a
-   Structure of Arrays layout: a `vector<uint8_t>` for slot state (empty, occupied,
-   deleted) separate from the key-value storage. I reached for this instinctively to
-   avoid struct padding waste. I didn't realize at the time that it had important
-   cache implications — that understanding came later from the data.
-
-3. **Robin Hood (RH)** — open addressing with Robin Hood insertion (displace
-   elements that are closer to their home slot) and backshift deletion (shift
-   elements backward on erase, avoiding tombstones). Also SoA layout, but uses
-   `vector<bool>` for the occupied state — space-efficient, but every probe pays
-   for bit manipulation.
-
-4. **std::unordered_map** — the standard library implementation, wrapped in a
-   common interface. Our baseline.
+1. **Chaining** — separate chaining with linked lists. Each node heap-allocated.
+2. **Linear Probing (LP)** — open addressing with tombstone deletion.
+3. **Robin Hood (RH)** — open addressing with displacement insertion and backshift
+   deletion (no tombstones).
+4. **std::unordered_map** — the standard library baseline.
 
 ## The scenarios
 
-Five operations, all at load factor 0.75 with N = 65,536 entries:
+Four operations, all at load factor 0.75 with N = 65,536 entries:
 
 | Scenario | What's timed |
 |---|---|
@@ -49,7 +37,6 @@ Five operations, all at load factor 0.75 with N = 65,536 entries:
 | **FindHit** | Find all N keys (all present) |
 | **FindMiss** | Find N keys that aren't in the map |
 | **EraseAndFind** | Erase half the entries, then find the survivors |
-| **EraseChurn** | Steady-state: insert one, erase one, repeat |
 
 All benchmarks ran on Apple Silicon M4, compiled with LLVM/Clang 21 at -O3.
 Medians of 10 repetitions.
@@ -69,47 +56,7 @@ layout.
 
 **Normal (clustered):** Keys drawn from a normal distribution centered at N/2
 with standard deviation N/8. About 68% of keys cluster into roughly N/4
-consecutive slots around the center.
-
-Why these three? After getting the sequential results, I kept thinking: how
-often does a real system insert sequential keys into a hash map? And if it does,
-wouldn't you use a more efficient bulk-loading strategy anyway?
-
-I thought about what real hash maps look like. A `HashMap<std::string, MyType>`
-hashes strings — and string hashes are much closer to uniformly distributed,
-regardless of the input pattern. But we're hashing integers with the identity
-function. With identity hash, the distribution of keys *is* the distribution
-of slots. And integer keys cluster in plenty of real scenarios — auto-increment
-IDs, timestamps, geographic coordinates, sensor readings.
-
-The normal distribution seemed like a reasonable model for "keys that cluster
-around a hot range." It turned out to be more adversarial than I expected — but
-that's exactly the kind of thing you want a benchmark to reveal.
-
-## A quick primer: expected probes
-
-If you already know how open addressing works, skip ahead. If not, here's the
-one thing you need to know.
-
-In open addressing, every operation — insert, find, delete — starts by hashing
-the key to a slot and then *probing* forward until it finds what it's looking
-for (or an empty slot). How many probes does it take? That depends on how full
-the table is — the load factor, α:
-
-| Load factor (α) | Expected probes |
-|---|---|
-| 0.50 (half full) | 2 |
-| 0.75 | 4 |
-| 0.90 | 10 |
-| 0.99 | 100 |
-
-The intuition: each probe has a (1 - α) chance of landing on an empty slot. At
-75% full, there's a 25% chance per probe, so on average you need about 4 tries.
-
-This analysis assumes probes are independent — each slot has the same probability
-of being empty. For linear probing that's not quite true, because occupied slots
-clump together (primary clustering), making probes correlated. But the formula
-gives the right order of magnitude.
+consecutive slots around the center of the table.
 
 ## Our predictions
 
@@ -124,9 +71,8 @@ I worried about Robin Hood: the displacement chains during insert and the
 backshifting during delete sounded expensive. I also worried about LP: wouldn't
 clusters degrade lookup?
 
-Claude worried about EraseChurn: Robin Hood's O(k) backshift per erase should
-lose to LP's O(1) tombstone flip. And about clustering: primary clustering should
-hurt LP under non-ideal conditions.
+Claude worried about clustering: primary clustering should hurt LP under
+non-ideal conditions.
 
 We wrote a prediction matrix:
 
@@ -136,19 +82,19 @@ We wrote a prediction matrix:
 | FindHit | slow — pointer chase | medium — clusters | fast — uniform probes | slow |
 | FindMiss | slow — walk full chain | medium | fast — early termination | slow |
 | EraseAndFind | medium | slow — tombstones hurt | fast — clean table | medium |
-| EraseChurn | medium | fast — tombstone flip | slow — O(k) backshift | medium |
 
 Our key beliefs:
 
 - Chaining degrades gracefully; open addressing has sharp failure modes
 - `std` is always slowest (chaining overhead + stdlib bloat)
-- EraseChurn is where Robin Hood pays for its complexity
 
 ## Act 1: Sequential keys
 
 Sequential keys first. This is where most hash map benchmarks begin and end.
 
 ### Results (cpu_time, nanoseconds)
+
+Bold marks the winner in each row.
 
 | Scenario | LP | RH | Chain | std |
 |---|---:|---:|---:|---:|
@@ -164,7 +110,7 @@ y-axis (ns). Color by implementation. The visual takeaway: LP's bars are
 consistently shortest, Chain and std are 10-20x taller on Insert and
 EraseAndFind. FindHit is the one where all four bars are close. -->
 
-### What we got right and wrong
+### Analysis
 
 **Insert** — LP is fastest, as predicted. But it's 19x faster than chaining. We
 expected maybe 2-3x. And our chaining is slower than `std` — we predicted the
@@ -177,18 +123,18 @@ The table is about 780KB at this size — well beyond L1 cache (128KB on M4). At
 this scale, the cost of a cache miss dominates the number of probes. Whether you
 probe 2 slots or 4, you're paying for the same DRAM round trip.
 
-**FindMiss** — RH wins as predicted, thanks to early termination (it can detect
-that a key can't be present without reaching an empty slot). But chaining is
-second, not last as we predicted. An empty bucket in chaining is an instant "not
-found" — no probing needed. At load 0.75, a quarter of buckets are empty.
+**FindMiss** — RH wins as predicted. Chaining takes second — an empty bucket is
+an instant "not found," and at load 0.75 a quarter of buckets are empty.
 
 **EraseAndFind** — This is the prediction we were most confident about, and most
 wrong. We said LP would be slow because tombstones degrade subsequent finds.
 We said RH would be fast because backshift deletion keeps the table clean.
 Reality: LP is fastest, 15x faster than chaining. Tombstone damage is real in
-theory — but scanning through tombstones in a flat array is cache-friendly.
-Chasing pointers through scattered heap nodes is not. The constant factor of a
-cache miss dwarfs the algorithmic difference in probe count.
+theory — but with sequential keys, LP has both advantages: probes are short
+(keys scatter perfectly) and each probe is cache-friendly (a linear scan through
+a flat array). Chaining has neither: it chases pointers through scattered heap
+nodes, and each node is a potential cache miss. The constant factor of a cache
+miss dwarfs the algorithmic difference in probe count.
 
 ### The tempting conclusion
 
@@ -216,62 +162,52 @@ potential cache miss.
 | FindMiss | 403K | **233K** | 233K | 322K |
 | EraseAndFind | 106K | **74.0K** | 561K | 475K |
 
-### What changed
+### Analysis
 
-The gap is closing. LP's insert advantage shrank from 19x to 6x over chaining.
-FindHit: chaining *ties* LP and RH — all three are within 3% of each other. The
-sequential advantage was partly cache flattery: the hardware prefetcher was doing
-work that open addressing got credit for.
+The sequential results were partly cache flattery. The hardware prefetcher was
+doing work that open addressing got credit for. Without it, the gaps shrink:
+LP's insert advantage drops from 19x to 6x over chaining. FindHit becomes a
+three-way tie — chaining, LP, and RH are within 3% of each other. RH takes
+EraseAndFind from LP.
 
-Rankings shifted too. RH takes EraseAndFind from LP (1.4x faster). Chaining ties
-RH on FindMiss.
-
-The ratio of uniform to sequential performance tells the real story:
-
-| Scenario | LP | RH | Chain | std |
-|---|---:|---:|---:|---:|
-| Insert | 6.0x | 5.3x | 1.9x | 1.8x |
-| FindHit | 2.8x | 2.6x | 2.3x | 3.3x |
-| FindMiss | 10.2x | 7.1x | 6.3x | 4.2x |
-| EraseAndFind | 5.0x | 2.9x | 1.8x | 1.4x |
-
-<!-- CHART: Grouped bar chart showing the uniform/sequential slowdown ratio for
-each implementation × scenario. The asymmetry is the point: LP and RH bars are
-consistently 3-10x, Chain and std bars are 1.5-4x. LP's FindMiss bar at 10.2x
-is the outlier. -->
-
-Open addressing pays a higher tax for random access than chaining does. Chaining's
-insert slows down 1.9x; LP's slows down 6x. The pointer chasing that made
-chaining slow with sequential keys is less of a disadvantage when open
-addressing's flat-array scans aren't benefiting from the prefetcher anyway.
-
-LP's FindMiss is the most striking: 10.2x slower with uniform keys. Scattered
-miss probes through tombstones are expensive when every probe is a cache miss.
+The asymmetry is revealing: random keys hurt open addressing far more than
+chaining. LP's insert slows down 6x from sequential; chaining's slows down
+1.9x. LP's FindMiss is the most dramatic — 10.2x slower, as scattered miss
+probes through tombstones are expensive when every probe is a cache miss. The
+pointer chasing that made chaining slow with sequential keys matters less when
+open addressing's flat-array scans aren't benefiting from the prefetcher anyway.
 
 But open addressing still wins on absolute numbers in most scenarios. Random
 keys hurt everyone — they just hurt open addressing more.
 
 ## Act 3: Normal keys
 
-Keys drawn from a normal distribution around N/2, with standard deviation N/8.
-About 68% of keys cluster into roughly N/4 consecutive slots around the
-center of the table.
+After the uniform results, I kept thinking: how often does a real system insert
+sequential keys into a hash map? And if it does, wouldn't you use a more
+efficient bulk-loading strategy anyway?
 
-This is adversarial for open addressing with identity hash. But it's not
-artificial. Real workloads cluster around hot ranges. The question is: how badly
-does it break things?
+A `HashMap<std::string, MyType>` hashes strings — and string hashes are close
+to uniformly distributed regardless of input. But we're hashing integers with
+the identity function. With identity hash, the distribution of keys *is* the
+distribution of slots. And integer keys cluster in plenty of real scenarios —
+auto-increment IDs, timestamps, geographic coordinates, sensor readings.
+
+So we tried a normal distribution: keys centered at N/2, standard deviation N/8.
+About 68% of keys cluster into roughly N/4 consecutive slots. At load factor
+0.75, open addressing normally expects ~4 probes per operation. What happens
+when thousands of keys hash to the same neighborhood?
 
 ### Results (cpu_time, nanoseconds)
 
 | Scenario | LP | RH | Chain | std |
 |---|---:|---:|---:|---:|
-| Insert | **744M** | **2,041M** | 4.35M | **2.08M** |
-| FindHit | **522M** | **602M** | 513K | **313K** |
+| Insert | 744M !! | 2,041M !! | 4.35M | **2.08M** |
+| FindHit | 522M !! | 602M !! | 513K | **313K** |
 | FindMiss | 80.1K | **33.1K** | 47.9K | 438K |
-| EraseAndFind | **786M** | **52.6M** | 528K | **456K** |
+| EraseAndFind | 786M !! | 52.6M !! | 528K | **456K** |
 
-The numbers in bold are catastrophic — hundreds of milliseconds to *seconds*
-per batch operation on just 65,536 entries.
+The `!!` numbers are catastrophic — hundreds of milliseconds to two seconds
+per batch on just 65,536 entries.
 
 <!-- CHART: This is the most important visualization in the post. Two options:
 (a) Log-scale bar chart, all four implementations × 4 scenarios. The LP/RH
@@ -281,7 +217,7 @@ magnitude. FindMiss is the exception where RH is still competitive.
 right panel shows LP and RH at a different scale (hundreds of ms to seconds).
 The contrast between panels IS the story. -->
 
-### What happened
+### Analysis
 
 Open addressing with identity hash went quadratic.
 
@@ -294,7 +230,9 @@ and find has to probe through the entire cluster.
 Robin Hood is even worse on some operations. RH Insert takes 2 *billion*
 nanoseconds. Robin Hood's displacement rule — "take from the rich, give to the
 poor" — means each insert into the dense cluster displaces an element, which
-displaces another, propagating through thousands of entries.
+displaces another, propagating through thousands of entries. Its backshift
+deletion (shifting elements backward on erase to avoid tombstones) causes the
+same cascading effect in reverse.
 
 Chaining barely notices. Chain FindHit goes from 54K (sequential) to 513K
 (normal) — a 9.5x slowdown, not an 11,000x one. The clustered buckets have
@@ -302,12 +240,11 @@ longer chains, but each chain is independent. There's no cascading effect.
 Remember our prediction that "chaining degrades gracefully"? We were right —
 we just didn't appreciate what that would be worth until we saw the alternative.
 
-And `std::unordered_map` wins. For the first time in any scenario, the
-implementation we treated as a punching bag is the fastest on Insert, FindHit,
-and EraseAndFind. `std` is also chaining under the hood, so it's immune to the
-clustering catastrophe. Its node-based allocation, which was a liability with
-sequential keys, is irrelevant when the alternative is probing through 50,000
-occupied slots.
+And `std::unordered_map` wins. Remember our prediction: "`std` is always
+slowest." Here it's the fastest on Insert, FindHit, and EraseAndFind. `std` is
+chaining under the hood, so it's immune to the clustering catastrophe. Its
+node-based allocation, which was a liability with sequential keys, is irrelevant
+when the alternative is probing through 50,000 occupied slots.
 
 There's one exception. FindMiss with normal keys: RH scores 33.1K — nearly
 identical to its 32.6K with sequential keys. Miss probes don't hit the dense
@@ -336,45 +273,6 @@ No implementation wins everywhere. The "best" hash map depends entirely on your
 key distribution — which, when you're using identity hash, is a fancy way of
 saying it depends on your data.
 
-## What we learned
-
-Three themes emerged from progressively breaking our assumptions.
-
-### Your benchmark's key distribution is the result
-
-Sequential keys told us "LP is 19x faster than chaining." Normal keys told us
-"LP is 1,700x slower than `std`." Both statements are true. Neither is the
-whole story.
-
-Most hash map benchmarks use sequential or uniform-random keys. Those are the
-easy cases — they're the ones where identity hash works fine and open addressing
-looks good. The interesting cases involve clustering, which identity hash does
-nothing to prevent.
-
-### Cache locality dominates — until it doesn't
-
-With sequential keys, flat-array probing versus pointer-chasing produces a
-15x gap (EraseAndFind). This is the lesson from Act 1, and it's real.
-
-But it has a precondition: the probing has to be short. When clustered keys
-turn 4-probe lookups into 10,000-probe lookups, it doesn't matter that each
-individual probe is cache-friendly. 10,000 fast probes is worse than 10 slow
-ones.
-
-Cache locality is the most important constant factor in hash map performance.
-But it can't save you from an algorithmic blowup.
-
-### Identity hash is the root cause
-
-The catastrophe isn't inherent to open addressing. It's the interaction between
-three things: identity hash, clustered keys, and linear probing. Identity hash
-maps clustered keys to clustered slots. Linear probing turns clustered slots
-into mega-clusters.
-
-The obvious fix is a better hash function — one that scatters clustered keys
-across the table. But scattering has a cost. For sequential keys, where
-identity hash is perfect, any hash computation is pure overhead.
-
 ## Closing
 
 We started with reasonable predictions, benchmarked with sequential keys, and
@@ -393,9 +291,6 @@ When those assumptions hold, you get 19x wins. When they don't, you get 11,000x
 losses. The question isn't "which hash map is fastest?" It's "what does your
 data actually look like, and how badly does your design degrade when you're
 wrong about that?"
-
-Performance engineering is empirical. The only honest approach is hypothesis,
-benchmark, analyze — then change an assumption and do it again.
 
 ---
 
