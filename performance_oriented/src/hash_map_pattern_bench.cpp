@@ -91,15 +91,30 @@ static std::vector<int> make_keys(KeyPattern pattern, int64_t n) {
   __builtin_unreachable();
 }
 
-// Generate miss keys from the same distribution as hit keys, but disjoint.
-// Uses a large prime offset so that miss keys land in similar table regions
-// as hit keys (same clustering behavior) without colliding in value space.
-// Prime chosen to avoid aliasing with power-of-two table sizes.
-static std::vector<int> make_miss_keys(const std::vector<int> &hit_keys) {
-  constexpr int PRIME_OFFSET = 1000003;
+// Generate miss keys: disjoint from hit keys, same distribution shape.
+//
+// For sequential keys: miss keys are [N, 2N). With identity hash and a table
+// of size 2*next_pow2(N), these map to the empty half of the table — fast
+// misses via immediate empty-slot detection. Using any fixed offset risks
+// landing inside the contiguous occupied block [0, N), which causes O(N)
+// probes for LP.
+//
+// For uniform/normal: uses a large prime offset. The occupied slots are
+// scattered (not contiguous), so the offset shifts miss keys into nearby
+// but mostly-empty regions. A prime avoids aliasing with power-of-two
+// table sizes.
+static std::vector<int> make_miss_keys(KeyPattern pattern,
+                                       const std::vector<int> &hit_keys) {
+  auto n = static_cast<int64_t>(hit_keys.size());
   std::vector<int> miss(hit_keys.size());
-  for (size_t i = 0; i < hit_keys.size(); ++i) {
-    miss[i] = hit_keys[i] + PRIME_OFFSET;
+
+  if (pattern == KeyPattern::SEQUENTIAL) {
+    std::iota(miss.begin(), miss.end(), static_cast<int>(n));
+  } else {
+    constexpr int PRIME_OFFSET = 1000003;
+    for (size_t i = 0; i < hit_keys.size(); ++i) {
+      miss[i] = hit_keys[i] + PRIME_OFFSET;
+    }
   }
   return miss;
 }
@@ -148,7 +163,7 @@ static void BM_FindMiss(benchmark::State &state) {
     map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
   }
 
-  auto miss_keys = make_miss_keys(keys);
+  auto miss_keys = make_miss_keys(P, keys);
 
   for (auto _ : state) {
     for (int64_t i = 0; i < n; ++i) {
@@ -185,35 +200,27 @@ static void BM_EraseAndFind(benchmark::State &state) {
 }
 
 // 5. EraseChurn: pre-fill N/2 keys, then repeatedly insert one + erase one.
-//    Uses an ever-incrementing counter to generate fresh keys from the same
-//    distribution. Each new key is: base_key + counter * SLOT_STRIDE (for
-//    normal), sequential counter (for sequential), or drawn from the pool
-//    (for uniform). This avoids buffer wrap issues with long benchmark runs.
+//    Generates a large key pool (20N) so the buffer never wraps during a
+//    benchmark run. With N/2 pre-fill and 19.5N churn keys available, even
+//    long runs won't exhaust the pool.
 template <typename T, KeyPattern P>
 static void BM_EraseChurn(benchmark::State &state) {
   auto n = state.range(0);
   auto half = n / 2;
 
-  // Pre-fill with first half of the keys
-  auto keys = make_keys(P, n);
+  // 20N keys: first N/2 for pre-fill, rest for churn. At ~1ns/iter,
+  // Google Benchmark runs ~100M iterations in 100ms. 19.5N = ~1.3M for
+  // N=65536, so the pool won't wrap for sub-microsecond operations.
+  constexpr int64_t POOL_MULTIPLIER = 20;
+  auto keys = make_keys(P, n * POOL_MULTIPLIER);
   T map;
   for (int64_t i = 0; i < half; ++i) {
     map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
   }
 
-  // Churn: insert the next key from our pool, erase the oldest in the map.
-  // Track which key to erase via an offset from the insert position.
   int64_t insert_pos = half;
   int64_t erase_pos = 0;
   for (auto _ : state) {
-    // If we've exhausted our pre-generated keys, the map has cycled through
-    // all of them. For sequential and uniform this is fine — the keys are
-    // deterministic. For normal, the clustering pattern is established.
-    // Wrap both indices together to maintain the N/2-entry invariant.
-    if (insert_pos >= n) {
-      insert_pos = half;
-      erase_pos = 0;
-    }
     map.insert(keys[static_cast<size_t>(insert_pos)],
                static_cast<int>(insert_pos));
     map.erase(keys[static_cast<size_t>(erase_pos)]);
