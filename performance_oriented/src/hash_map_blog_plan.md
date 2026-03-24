@@ -29,111 +29,88 @@ theoretical. The only honest approach is hypothesis, benchmark, analyze.
 
 ### Part 1: "Your Hash Map Hypotheses Are Probably Wrong"
 
-The hook: we wrote a prediction matrix before benchmarking, and it was wrong in interesting ways.
+The hook: we benchmarked with sequential keys and declared open addressing the winner.
+Then we changed the key distribution and watched the winner become 11,000x slower.
 
-**Content:**
-- Brief intro to the four implementations: chaining, linear probing (tombstones), Robin Hood
-  (backshift deletion), std::unordered_map
-- The prediction matrix (include it verbatim — readers form their own predictions)
-- 5 benchmark scenarios at 3 load factors (insert, find hit, find miss, erase+find, erase churn)
-- Systematic comparison: prediction vs reality, scenario by scenario
-- Key surprises:
-  - Load factor sensitivity was overstated (cache misses dominate probe length at 65K entries)
-  - Robin Hood was supposed to suffer on erase churn — it was fastest (backshift cleans the table)
-  - Our chaining was slower than std::unordered_map (allocation strategy, not algorithm)
-  - "Tombstones degrade probing" is correct in theory, irrelevant vs pointer chasing
-- Lesson: cache locality > algorithmic elegance, and measure don't assume
+**Structure — three acts:**
+
+1. **Setup:** four implementations, five scenarios, three key distributions, predictions
+2. **Act 1 — Sequential keys:** LP dominates, open addressing wins big, case closed
+3. **Act 2 — Uniform keys:** the gap narrows, rankings shift, cracks appear
+4. **Act 3 — Normal keys:** open addressing goes quadratic, std::unordered_map wins,
+   every conclusion from Act 1 inverts
+5. **Lessons:** your benchmark's key distribution IS the result; cache locality dominates
+   until probes go O(N); identity hash is the root cause
+
+**Key surprises:**
+- LP is 19x faster than chaining (sequential) and 1,700x slower than std (normal)
+- Chaining degrades 9.5x from sequential to normal; LP degrades 11,000x
+- std::unordered_map — the punching bag — wins 3 of 4 normal scenarios
+- RH's FindMiss is immune to clustering (miss probes hit the sparse tails)
+- The prediction matrix was wrong in almost every interesting way
 
 **Source material:**
-- `hash_map_bench_hypotheses.md` — the predictions
-- `hash_map_bench_results.md` — the analysis
-- `hash_map_bench_scenarios.md` — scenario descriptions
+- `hash_map_pattern_bench.cpp` — the benchmark code
+- `hash_map_pattern_bench_design.md` — design decisions and key generation math
+- `hash_map_bench_hypotheses.md` — the original predictions
+- `hash_map_post1_outline.md` — detailed outline
 
-**What readers take away:** The mental model most engineers have about hash map performance
-(load factor is critical, tombstones are expensive, Robin Hood's swaps are costly) is
-incomplete. The constant factor difference between cache hits and cache misses dwarfs
-algorithmic differences.
+**What readers take away:** Hash map benchmarks with sequential or uniform keys are
+measuring the best case. Real workloads cluster. Identity hash + clustering + open
+addressing = quadratic. The "best" hash map depends entirely on your key distribution,
+which means it depends on your hash function. This sets up Part 2's exploration of
+better hash functions as both a fix and a new set of tradeoffs.
 
 
 ### Part 2: "The Optimization That Made Everything Worse"
 
-The hook: "I merged the arrays for better locality and it got 21x slower."
+The hook: Post 1 ended with "the fix is a better hash function." So we tried that.
+Then we tried three other optimizations. Every one that "should" help didn't.
 
-**Content:**
-- AoS vs SoA for open addressing slots
-  - The plausible argument: colocate metadata with key-value data, one cache line per probe
-  - The reality: 1.3-21x regression, getting worse at scale
-  - Why: the hot path is state scanning, not key reading. 128 states per cache line vs ~10
-    merged 12-byte slots. Probing loads key-value bytes just to check if a slot is empty.
-  - FindMiss hit hardest (2x at 65K) — never reads keys at all, every cache line 83% waste
-- vector<bool> vs vector<uint8_t> for Robin Hood occupied state
-  - Bit-packed saves memory (16.25 vs ~18 bytes/entry) but every probe requires bit manipulation
-  - Switching to uint8_t: 1.4-1.7x faster on insert, grows with load factor and scale
-  - The one regression: EraseChurn (vector<bool> proxy swap cheaper), but sub-5ns absolute
-- Pool allocator for chaining
-  - The right fix for the right problem: chaining's bottleneck was per-node malloc, not the algorithm
-  - Intrusive free list: zero extra memory, 3-6x faster insert, ~10x faster erase+find
-  - Makes chaining competitive with open addressing
-- Lesson: understand which fields your hot path actually reads. AoS vs SoA is not a universal
-  rule — it depends on your access pattern.
+**Content — four optimizations that failed or backfired:**
 
-**Source material:**
-- `hash_map_perf_findings.md` — AoS/SoA, Fibonacci hash, pool allocator findings
-- `hash_map_robin_hood_v2_analysis.md` — vector<bool> vs vector<uint8_t>
-- `hash_map_memory_analysis.md` — memory per entry numbers
+1. **AoS merge** — "colocate metadata with data for better locality"
+   - The plausible argument: one cache line per probe instead of two array lookups
+   - Reality: 1.3-21x regression. The hot path is state scanning, not key reading.
+     128 states per cache line vs ~10 merged 12-byte slots. Probing loads key-value
+     bytes just to check if a slot is empty.
+   - Lesson: AoS vs SoA depends on your access pattern, not a universal rule
 
-**What readers take away:** The textbook advice ("merge for locality") assumes every probe
-needs all fields. When the hot path only reads metadata, keeping it dense and separate wins.
-Also: before optimizing an algorithm, check if the real bottleneck is something mundane
-like allocation strategy.
+2. **Fibonacci hashing** — "scatter keys better, reduce clustering"
+   - This was supposed to fix the Normal catastrophe from Post 1
+   - Reality: 1.65-2.1x faster for pathological clustering, but 1.3-1.5x slower for
+     sequential keys. At 4M sequential entries, 15x slower (destroys prefetcher)
+   - The tradeoff: fixes one pathology, creates another. ~14% is pure compute cost;
+     the rest is cache/memory effects from scattering what was previously sequential
+   - (Opportunity: rerun pattern bench with Fibonacci hash to show the Normal fix
+     and quantify the sequential regression side-by-side)
 
+3. **Stored probe distance** — "store metadata to avoid recomputing home slot"
+   - Reality: 9-17% slower on insert. get_home() with identity hash is one AND
+     instruction. The bookkeeping overhead exceeds the cost of recomputation.
+   - When it *would* help: expensive hash functions, partial-key schemes
 
-### Part 3: "Three Things That Should Have Helped But Didn't"
+4. **Prefetching** — "prefetch next probe slot to hide memory latency"
+   - Reality: 0% improvement. Probe loop body is ~3-5 cycles, prefetch to DRAM takes
+     100+. The prefetch hasn't completed by the time we need it.
+   - What would actually work: batch prefetching (compute N home slots, prefetch all)
 
-The hook: each optimization has a plausible "this should be faster" argument that fails.
-
-**Content:**
-- Fibonacci hashing (tradeoff, not a win)
-  - Hypothesis: scatter keys better, reduce clustering
-  - Reality: 1.65-2.1x faster for pathological strided keys, but 1.3-1.5x slower for
-    sequential keys. At 4M entries with sequential keys, 15x slower (destroys prefetcher-
-    friendly access pattern)
-  - Isolating compute vs memory: ~14% is the multiply+shift cost (measured at L1-resident
-    sizes where every access is a cache hit regardless of pattern). Everything above that
-    is cache/memory effects.
-  - Random-key gap stays flat at ~7% regardless of scale — confirms it's a memory pattern
-    issue, not a compute issue
-- Prefetching (loop too tight, hardware already does it)
-  - Hypothesis: prefetch next probe slot to hide memory latency
-  - Reality: 0% improvement on most scenarios, even at 4M entries (fully cache-cold)
-  - Why: probe loop body is ~3-5 cycles. Prefetch to DRAM takes 100+ cycles. The prefetch
-    for slot i+1 hasn't completed by the time we get there. Prefetching further ahead wastes
-    effort since average probe chain is ~2.5 slots.
-  - Hardware prefetcher already handles sequential access (identity hash + sequential keys)
-  - What would actually work: batch prefetching (compute N home slots, prefetch all, process)
-- Stored probe distance (optimizing away a 1-cycle operation)
-  - Hypothesis: store probe distance in the state byte, eliminate get_home() recomputation
-  - Reality: 9-17% slower on insert at all scales, tied or worse everywhere else
-  - Why: get_home() with identity hash is one AND instruction. Storing probe distance adds
-    bookkeeping during Robin Hood swaps (update both displaced and displacing elements,
-    encode/decode with +1 offset). The overhead exceeds the cost of a single AND.
-  - When it would help: expensive hash functions (Fibonacci multiply+shift, cryptographic),
-    small L1-resident tables, partial-key schemes where you can't recompute home
-- Lesson: don't optimize what's already cheap. Understand what your hardware does for free
-  (prefetcher, single-cycle operations). The cost of bookkeeping can exceed the cost of
-  recomputation.
+**Also in this post (positive results):**
+- **vector\<bool\> → vector\<uint8_t\>** for Robin Hood: 1.4-1.7x faster insert
+- **Pool allocator for chaining:** 3-6x faster insert, ~10x faster erase+find. Fixes
+  chaining's actual bottleneck (per-node malloc, not the algorithm)
 
 **Source material:**
-- `hash_map_fibonacci_hash_analysis.md` — full Fibonacci comparison
-- `hash_map_prefetching_analysis.md` — prefetching results
-- `hash_map_robin_hood_three_way_analysis.md` — three-way Robin Hood comparison
+- `hash_map_perf_findings.md`, `hash_map_robin_hood_v2_analysis.md`
+- `hash_map_fibonacci_hash_analysis.md`, `hash_map_prefetching_analysis.md`
+- `hash_map_robin_hood_three_way_analysis.md`
 
-**What readers take away:** "Theoretically better" can be practically worse. Before optimizing,
-understand: (1) how expensive is the thing you're replacing? (2) what does the optimization
-cost? (3) what does the hardware already do for you?
+**What readers take away:** "Theoretically better" can be practically worse. Before
+optimizing, understand: (1) how expensive is the thing you're replacing? (2) what does
+the optimization cost? (3) what does the hardware already do for you?
 
 
-### Part 4 (optional): "Closing the Gap to Production"
+### Part 3 (optional): "Closing the Gap to Production"
 
 This post is forward-looking — requires additional implementation work.
 
