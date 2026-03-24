@@ -49,10 +49,12 @@ All implementations use identity hash (`std::hash<int>` = identity on most
 compilers[^identity-hash]). Apple Silicon M4, LLVM/Clang 21, -O3.
 
 [^identity-hash]: We confirmed this by compiling a minimal `std::hash<int>`
-program at -O3 and inspecting the assembly. The compiler constant-folds
-`hash(42)` to the literal `42` — no function call, no computation. The hash
-is completely eliminated. See `scripts/verify_identity_hash.sh` for the test
-and assembly output.
+program and inspecting the assembly. At -O3, the compiler constant-folds
+`hash(42)` to the literal `42` — no function call, no computation. At -O0,
+the compiler emits an actual call to `std::__hash_impl<int, void>::operator()`,
+but the function body is just `ldrsw x0, [sp, #4]; ret` — load the int,
+sign-extend to `size_t`, return it. Identity either way. See
+`scripts/verify_identity_hash.sh` for the test.
 
 ### The three key distributions
 
