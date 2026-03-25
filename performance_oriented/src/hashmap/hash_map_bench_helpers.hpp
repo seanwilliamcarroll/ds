@@ -194,6 +194,32 @@ template <typename T, KeyPattern P> void BM_FindMiss(benchmark::State &state) {
   }
 }
 
+// 3b. FindMissWarm: same as FindMiss but with a warm-up pass over the miss
+//     keys before timing. If cold cache lines in the miss region explain the
+//     normal-key slowdown, this variant should be significantly faster.
+template <typename T, KeyPattern P>
+void BM_FindMissWarm(benchmark::State &state) {
+  auto n = state.range(0);
+  auto keys = make_keys(P, n);
+  T map;
+  for (int64_t i = 0; i < n; ++i) {
+    map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+  }
+
+  auto miss_keys = make_miss_keys(P, keys);
+
+  // Warm-up: touch all miss key slots so cache lines are hot
+  for (int64_t i = 0; i < n; ++i) {
+    benchmark::DoNotOptimize(map.find(miss_keys[static_cast<size_t>(i)]));
+  }
+
+  for (auto _ : state) {
+    for (int64_t i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(map.find(miss_keys[static_cast<size_t>(i)]));
+    }
+  }
+}
+
 // 4. EraseAndFind: pre-fill N keys, erase half (every other in insertion
 //    order), then find the survivors.
 template <typename T, KeyPattern P>
@@ -226,21 +252,23 @@ void BM_EraseChurn(benchmark::State &state) {
   auto n = state.range(0);
   auto half = n / 2;
 
-  // 20N keys: first N/2 for pre-fill, rest for churn.
-  constexpr int64_t POOL_MULTIPLIER = 20;
+  // 2N keys: first N/2 for pre-fill, rest for churn.
+  constexpr int64_t POOL_MULTIPLIER = 2;
   auto keys = make_keys(P, n * POOL_MULTIPLIER);
-  T map;
-  for (int64_t i = 0; i < half; ++i) {
-    map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
-  }
 
-  int64_t insert_pos = half;
-  int64_t erase_pos = 0;
   for (auto _ : state) {
-    map.insert(keys[static_cast<size_t>(insert_pos)],
-               static_cast<int>(insert_pos));
-    map.erase(keys[static_cast<size_t>(erase_pos)]);
-    ++insert_pos;
-    ++erase_pos;
+    state.PauseTiming();
+    T map;
+    for (int64_t i = 0; i < half; ++i) {
+      map.insert(keys[static_cast<size_t>(i)], static_cast<int>(i));
+    }
+    state.ResumeTiming();
+    for (int64_t i = half; i < n * POOL_MULTIPLIER; ++i) {
+      int64_t insert_pos = i;
+      int64_t erase_pos = i - half;
+      map.insert(keys[static_cast<size_t>(insert_pos)],
+                 static_cast<int>(insert_pos));
+      map.erase(keys[static_cast<size_t>(erase_pos)]);
+    }
   }
 }
