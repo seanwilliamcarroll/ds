@@ -11,6 +11,10 @@ add_executable(hash_map_pattern_bench hash_map_pattern_bench.cpp)
 target_link_libraries(hash_map_pattern_bench benchmark::benchmark)
 ds_configure_target(hash_map_pattern_bench)
 
+add_executable(hash_map_optimization_bench hash_map_optimization_bench.cpp)
+target_link_libraries(hash_map_optimization_bench benchmark::benchmark)
+ds_configure_target(hash_map_optimization_bench)
+
 add_executable(hash_map_mem_bench hash_map_bench.cpp)
 target_link_libraries(hash_map_mem_bench benchmark::benchmark)
 target_compile_definitions(hash_map_mem_bench PRIVATE TRACK_MEMORY)
