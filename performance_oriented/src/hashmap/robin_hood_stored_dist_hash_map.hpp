@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -13,7 +14,8 @@
 // recomputing it via get_home() at each probe step. This exists to measure
 // the performance impact of stored vs recomputed probe distance.
 //
-// See robin_hood_hash_map.hpp for the recomputed version and full documentation.
+// See robin_hood_hash_map.hpp for the recomputed version and full
+// documentation.
 
 template <double MaxLoad = 0.75> class RobinHoodStoredDistHashMap {
 
@@ -30,7 +32,8 @@ public:
   ~RobinHoodStoredDistHashMap() = default;
 
   RobinHoodStoredDistHashMap(const RobinHoodStoredDistHashMap &) = delete;
-  RobinHoodStoredDistHashMap &operator=(const RobinHoodStoredDistHashMap &) = delete;
+  RobinHoodStoredDistHashMap &
+  operator=(const RobinHoodStoredDistHashMap &) = delete;
   RobinHoodStoredDistHashMap(RobinHoodStoredDistHashMap &&) = delete;
   RobinHoodStoredDistHashMap &operator=(RobinHoodStoredDistHashMap &&) = delete;
 
@@ -68,6 +71,9 @@ public:
       // Continue to next slot
       slot_index = (slot_index + 1) & (num_slots - 1);
       ++inserter_probe_distance;
+      if (inserter_probe_distance == 0) {
+        std::abort(); // probe distance overflowed uint8_t
+      }
     }
     // Found an empty slot
     stored_probe_distance[slot_index] = inserter_probe_distance + 1U;
@@ -106,6 +112,9 @@ public:
       // On to next slot
       slot_index = (slot_index + 1) & (num_slots - 1);
       ++finder_probe_distance;
+      if (finder_probe_distance == 0) {
+        std::abort(); // probe distance overflowed uint8_t
+      }
     }
     // Found empty slot, didn't find it
     return std::nullopt;
@@ -136,6 +145,9 @@ public:
       // On to next slot
       slot_index = (slot_index + 1) & (num_slots - 1);
       ++eraser_probe_distance;
+      if (eraser_probe_distance == 0) {
+        std::abort(); // probe distance overflowed uint8_t
+      }
     }
     if (stored_probe_distance[slot_index] == 0U) {
       // Didn't find the slot
@@ -228,6 +240,9 @@ private:
         // Continue to next slot
         new_slot_index = (new_slot_index + 1) & (num_slots - 1);
         ++inserter_probe_distance;
+        if (inserter_probe_distance == 0) {
+          std::abort(); // probe distance overflowed uint8_t
+        }
       }
       // Found an empty slot
       new_stored_probe_distance[new_slot_index] = inserter_probe_distance + 1U;

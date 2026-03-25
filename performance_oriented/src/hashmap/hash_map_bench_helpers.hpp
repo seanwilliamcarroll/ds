@@ -83,28 +83,62 @@ inline std::vector<int> make_keys(KeyPattern pattern, int64_t n) {
 
 // Generate miss keys: disjoint from hit keys, same distribution shape.
 //
-// For sequential keys: miss keys are [N, 2N). With identity hash and a table
-// of size 2*next_pow2(N), these map to the empty half of the table — fast
-// misses via immediate empty-slot detection. Using any fixed offset risks
-// landing inside the contiguous occupied block [0, N), which causes O(N)
-// probes for LP.
+// Sequential: miss keys are [N, 2N). With identity hash and a table of size
+// 2*next_pow2(N), these map to the empty half — fast misses via immediate
+// empty-slot detection.
 //
-// For uniform/normal: uses a large prime offset. The occupied slots are
-// scattered (not contiguous), so the offset shifts miss keys into nearby
-// but mostly-empty regions. A prime avoids aliasing with power-of-two
-// table sizes.
+// Uniform: prime offset from each hit key. Scattered occupied slots mean the
+// offset reliably lands in empty regions.
+//
+// Normal: independently generated normal keys centered at N*2 (hit keys center
+// at N/2). With identity hash the slot is determined by normal_part alone, and
+// the two centers are ~12 stddevs apart, so miss keys hash to a completely
+// different region of the table. A simple offset doesn't work here because
+// offset mod table_size varies with table size — for some sizes it lands right
+// in the hit cluster, for others it doesn't, producing wildly non-monotonic
+// benchmark results.
 inline std::vector<int> make_miss_keys(KeyPattern pattern,
                                        const std::vector<int> &hit_keys) {
   auto n = static_cast<int64_t>(hit_keys.size());
-  std::vector<int> miss(hit_keys.size());
 
   if (pattern == KeyPattern::SEQUENTIAL) {
+    std::vector<int> miss(hit_keys.size());
     std::iota(miss.begin(), miss.end(), static_cast<int>(n));
-  } else {
-    constexpr int PRIME_OFFSET = 1000003;
-    for (size_t i = 0; i < hit_keys.size(); ++i) {
-      miss[i] = hit_keys[i] + PRIME_OFFSET;
+    return miss;
+  }
+
+  if (pattern == KeyPattern::NORMAL) {
+    // Same construction as make_normal_keys but centered at 3N/2 instead of
+    // N/2, with a different seed. The SLOT_STRIDE trick ensures normal_part
+    // alone determines the slot. With table_size ≈ 2N, the miss center is N
+    // slots (50% of the table) from the hit center — on the opposite side.
+    // The 95% ranges ([N/4, 3N/4] hits vs [5N/4, 7N/4] misses) don't overlap.
+    constexpr int SLOT_STRIDE = 1 << 20;
+    constexpr int MAX_X = 2000;
+    std::mt19937 rng(777);
+    auto mean = static_cast<double>(n) * 1.5;
+    auto stddev = static_cast<double>(n) / 8.0;
+    std::normal_distribution<double> dist(mean, stddev);
+    std::uniform_int_distribution<int> x_dist(0, MAX_X - 1);
+
+    std::unordered_set<int> seen(hit_keys.begin(), hit_keys.end());
+    std::vector<int> miss;
+    miss.reserve(static_cast<size_t>(n));
+    while (static_cast<int64_t>(miss.size()) < n) {
+      auto normal_part = static_cast<int>(std::round(dist(rng)));
+      int key = normal_part + x_dist(rng) * SLOT_STRIDE;
+      if (seen.insert(key).second) {
+        miss.push_back(key);
+      }
     }
+    return miss;
+  }
+
+  // Uniform: simple prime offset works fine since occupied slots are scattered.
+  constexpr int PRIME_OFFSET = 1000003;
+  std::vector<int> miss(hit_keys.size());
+  for (size_t i = 0; i < hit_keys.size(); ++i) {
+    miss[i] = hit_keys[i] + PRIME_OFFSET;
   }
   return miss;
 }
