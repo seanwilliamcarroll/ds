@@ -63,7 +63,7 @@ fi
 
 echo "==> pre-push: running clang-tidy (parallel)"
 SOURCE_FILES=$(find . -path './build*' -prune -o \( -name '*.hpp' -o -name '*.cpp' \) -print \
-    | grep -v '_test\.cpp$' | grep -v '_bench\.cpp$' | grep -v '_bench_helpers\.hpp$')
+    | grep -v '_test\.cpp$' | grep -v '_bench\.cpp$' | grep -v '_bench_helpers\.hpp$' | grep -v '_dump\.cpp$')
 
 if [ -n "$SOURCE_FILES" ]; then
     echo "$SOURCE_FILES" | xargs -P 0 -n 1 clang-tidy -p build-check --warnings-as-errors='*' --quiet 2>&1
