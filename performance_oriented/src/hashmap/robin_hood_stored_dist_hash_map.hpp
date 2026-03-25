@@ -6,37 +6,16 @@
 #include <optional>
 #include <vector>
 
-// Robin Hood Hash Map (int → int)
+// Robin Hood Hash Map — stored probe distance variant (int → int)
 //
-// Open addressing with Robin Hood hashing and backshift deletion.
+// Identical algorithm to RobinHoodHashMap, but stores the probe distance in
+// the uint8_t state byte (0 = empty, 1+ = probe distance + 1) instead of
+// recomputing it via get_home() at each probe step. This exists to measure
+// the performance impact of stored vs recomputed probe distance.
 //
-// Operations:
-//   insert(key, value) — insert or update the value for a key
-//   find(key)          — return the value if present, std::nullopt otherwise
-//   erase(key)         — remove the key if present, return true if removed
-//   size()             — number of key-value pairs currently stored
-//   empty()            — whether the map has no entries
-//
-// Behavior:
-//   - All entries live in a single flat array of slots
-//   - Each slot is either empty or occupied (no tombstones!)
-//   - On collision, probe linearly: slot, slot+1, slot+2, ... (wrapping)
-//   - Robin Hood insertion: if the inserting element has probed farther than
-//     the occupant, swap them and continue inserting the displaced element
-//   - Early termination on find: if occupant's probe distance < our current
-//     probe distance, the key cannot be in the table
-//   - Backshift deletion: shift displaced elements backward to fill the gap,
-//     stop when hitting an empty slot or an element at its home position
-//   - Rehash (double slot count, reinsert all occupied entries) when
-//     load factor (size / slot_count) exceeds a threshold (e.g., 0.75)
-//   - Use std::hash<int> for hashing
-//   - Power-of-two slot count, map to slot via: hash(key) & (slot_count - 1)
-//
-// Constraints:
-//   - No use of std::unordered_map, std::map, or other standard associative
-//   containers
+// See robin_hood_hash_map.hpp for the recomputed version and full documentation.
 
-template <double MaxLoad = 0.75> class RobinHoodHashMapV2 {
+template <double MaxLoad = 0.75> class RobinHoodStoredDistHashMap {
 
   static constexpr double MAX_LOAD = MaxLoad;
 
@@ -46,14 +25,14 @@ template <double MaxLoad = 0.75> class RobinHoodHashMapV2 {
   };
 
 public:
-  RobinHoodHashMapV2()
+  RobinHoodStoredDistHashMap()
       : stored_probe_distance(num_slots, 0U), slots(num_slots) {}
-  ~RobinHoodHashMapV2() = default;
+  ~RobinHoodStoredDistHashMap() = default;
 
-  RobinHoodHashMapV2(const RobinHoodHashMapV2 &) = delete;
-  RobinHoodHashMapV2 &operator=(const RobinHoodHashMapV2 &) = delete;
-  RobinHoodHashMapV2(RobinHoodHashMapV2 &&) = delete;
-  RobinHoodHashMapV2 &operator=(RobinHoodHashMapV2 &&) = delete;
+  RobinHoodStoredDistHashMap(const RobinHoodStoredDistHashMap &) = delete;
+  RobinHoodStoredDistHashMap &operator=(const RobinHoodStoredDistHashMap &) = delete;
+  RobinHoodStoredDistHashMap(RobinHoodStoredDistHashMap &&) = delete;
+  RobinHoodStoredDistHashMap &operator=(RobinHoodStoredDistHashMap &&) = delete;
 
   void insert(int key, int value) {
     // TODO: Robin Hood insertion

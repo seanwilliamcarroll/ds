@@ -18,10 +18,11 @@ def parse_name(name):
 def short_name(impl):
     """Shorten implementation name for table display."""
     replacements = [
-        ('ChainingHashMapV2', 'ChainV2'),
+        ('ChainingPoolHashMap', 'ChainPool'),
         ('ChainingHashMap', 'Chain'),
-        ('RobinHoodHashMapV2', 'RobinV2'),
+        ('RobinHoodStoredDistHashMap', 'RobinStoredDist'),
         ('RobinHoodHashMap', 'Robin'),
+        ('LinearProbingMergedStructHashMap', 'LinearMerged'),
         ('LinearProbingHashMap', 'Linear'),
         ('StdUnorderedMapAdapter', 'std::umap'),
     ]

@@ -5,53 +5,39 @@
 #include <functional>
 #include <optional>
 
-// Chaining Hash Map (int → int)
+// Chaining Hash Map — pool allocator variant (int → int)
 //
-// Implement a hash map using separate chaining (linked list per bucket).
+// Identical algorithm to ChainingHashMap, but uses a pre-allocated node pool
+// with an intrusive free list instead of per-node make_unique allocation.
+// This exists to measure the performance impact of allocation strategy on
+// chaining hash maps.
 //
-// Operations:
-//   insert(key, value) — insert or update the value for a key
-//   find(key)          — return the value if present, std::nullopt otherwise
-//   erase(key)         — remove the key if present, return true if removed
-//   size()             — number of key-value pairs currently stored
-//   empty()            — whether the map has no entries
-//
-// Behavior:
-//   - Start with a small number of buckets (e.g., 8)
-//   - Rehash (double bucket count, redistribute all entries) when
-//     load factor (size / bucket_count) exceeds a threshold (e.g., 0.75)
-//   - Use std::hash<int> for hashing
-//   - Map to a bucket via: hash(key) % bucket_count
-//     (power-of-two sizing with bitmasking is a future optimization)
-//
-// Constraints:
-//   - No use of std::unordered_map, std::map, or other standard associative
-//   containers
-//   - You must manage your own linked list nodes (heap-allocated)
+// See chaining_hash_map.hpp for the per-node allocation version and full
+// documentation.
 
-struct LinkedListNodeV2 {
-  LinkedListNodeV2() = default;
+struct PoolLinkedListNode {
+  PoolLinkedListNode() = default;
 
-  LinkedListNodeV2(int key, int value) : key(key), value(value) {}
+  PoolLinkedListNode(int key, int value) : key(key), value(value) {}
 
   int key = 0;
   int value = 0;
-  LinkedListNodeV2 *next = nullptr;
+  PoolLinkedListNode *next = nullptr;
 };
 
-struct LinkedListV2 {
+struct PoolLinkedList {
 
   struct Iterator {
-    Iterator(LinkedListNodeV2 *node) : node(node) {}
+    Iterator(PoolLinkedListNode *node) : node(node) {}
 
-    LinkedListNodeV2 &operator*() const { return *node; }
+    PoolLinkedListNode &operator*() const { return *node; }
     Iterator &operator++() {
       node = node->next;
       return *this;
     }
     bool operator!=(const Iterator &other) const { return node != other.node; }
 
-    LinkedListNodeV2 *node;
+    PoolLinkedListNode *node;
   };
 
   [[nodiscard]]
@@ -81,9 +67,9 @@ struct LinkedListV2 {
 
   // Return true on successful insert, false on replacement
   // Tells us whether we used this new node or not
-  bool insert(int key, int value, LinkedListNodeV2 *new_node) {
+  bool insert(int key, int value, PoolLinkedListNode *new_node) {
     if (head == nullptr) {
-      *new_node = LinkedListNodeV2(key, value);
+      *new_node = PoolLinkedListNode(key, value);
       head = new_node;
       tail = head;
       length = 1;
@@ -97,15 +83,15 @@ struct LinkedListV2 {
       }
       current_pointer = current_pointer->next;
     }
-    *new_node = LinkedListNodeV2(key, value);
+    *new_node = PoolLinkedListNode(key, value);
     force_insert(new_node);
     return true;
   }
 
-  LinkedListNodeV2 *erase(int key) {
+  PoolLinkedListNode *erase(int key) {
     auto *current_pointer = head;
     auto *previous_pointer = head;
-    LinkedListNodeV2 *old_node = nullptr;
+    PoolLinkedListNode *old_node = nullptr;
     while (current_pointer != nullptr) {
       if (current_pointer->key == key) {
         if (current_pointer == head && current_pointer == tail) {
@@ -142,7 +128,7 @@ struct LinkedListV2 {
     return length;
   }
 
-  void force_insert(LinkedListNodeV2 *new_node) {
+  void force_insert(PoolLinkedListNode *new_node) {
     if (head == nullptr) {
       head = new_node;
       tail = head;
@@ -155,18 +141,18 @@ struct LinkedListV2 {
   }
 
 private:
-  LinkedListNodeV2 *head = nullptr;
-  LinkedListNodeV2 *tail = nullptr;
+  PoolLinkedListNode *head = nullptr;
+  PoolLinkedListNode *tail = nullptr;
   size_t length = 0;
 };
 
-template <double MaxLoad = 0.75> class ChainingHashMapV2 {
+template <double MaxLoad = 0.75> class ChainingPoolHashMap {
   static constexpr double MAX_LOAD_PERCENTAGE = MaxLoad;
 
   static constexpr size_t NULL_INDEX = 0;
 
 public:
-  ChainingHashMapV2()
+  ChainingPoolHashMap()
       : buckets(num_buckets), allocated_nodes(num_buckets),
         free_list_head(&allocated_nodes.front()) {
     auto *current_pointer = free_list_head;
@@ -178,12 +164,12 @@ public:
     }
   }
 
-  ~ChainingHashMapV2() = default;
+  ~ChainingPoolHashMap() = default;
 
-  ChainingHashMapV2(const ChainingHashMapV2 &) = delete;
-  ChainingHashMapV2 &operator=(const ChainingHashMapV2 &) = delete;
-  ChainingHashMapV2(ChainingHashMapV2 &&) = delete;
-  ChainingHashMapV2 &operator=(ChainingHashMapV2 &&) = delete;
+  ChainingPoolHashMap(const ChainingPoolHashMap &) = delete;
+  ChainingPoolHashMap &operator=(const ChainingPoolHashMap &) = delete;
+  ChainingPoolHashMap(ChainingPoolHashMap &&) = delete;
+  ChainingPoolHashMap &operator=(ChainingPoolHashMap &&) = delete;
 
   void insert(int key, int value) {
     auto bucket_index = get_bucket_index(key);
@@ -230,8 +216,8 @@ public:
 private:
   void grow() {
     num_buckets *= 2;
-    std::vector<LinkedListV2> new_buckets(num_buckets);
-    std::vector<LinkedListNodeV2> new_allocated_nodes(num_buckets);
+    std::vector<PoolLinkedList> new_buckets(num_buckets);
+    std::vector<PoolLinkedListNode> new_allocated_nodes(num_buckets);
     free_list_head = &new_allocated_nodes.front();
     auto *current_node = free_list_head;
     for (auto iter = (new_allocated_nodes.begin() + 1);
@@ -248,7 +234,7 @@ private:
         auto new_bucket_index = get_bucket_index(node.key);
         auto *new_node = free_list_head;
         free_list_head = free_list_head->next;
-        *new_node = LinkedListNodeV2(node.key, node.value);
+        *new_node = PoolLinkedListNode(node.key, node.value);
         new_buckets[new_bucket_index].force_insert(new_node);
       }
     }
@@ -271,8 +257,8 @@ private:
 
   size_t num_buckets = 16;
   size_t num_entries = 0;
-  std::vector<LinkedListV2> buckets;
+  std::vector<PoolLinkedList> buckets;
 
-  std::vector<LinkedListNodeV2> allocated_nodes;
-  LinkedListNodeV2 *free_list_head;
+  std::vector<PoolLinkedListNode> allocated_nodes;
+  PoolLinkedListNode *free_list_head;
 };

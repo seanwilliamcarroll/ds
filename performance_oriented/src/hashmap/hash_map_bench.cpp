@@ -3,10 +3,10 @@
 #endif
 
 #include "chaining_hash_map.hpp"
-#include "chaining_hash_map_v2.hpp"
+#include "chaining_pool_hash_map.hpp"
 #include "linear_probing_hash_map.hpp"
 #include "robin_hood_hash_map.hpp"
-#include "robin_hood_hash_map_v2.hpp"
+#include "robin_hood_stored_dist_hash_map.hpp"
 #include "std_unordered_map_adapter.hpp"
 
 #include <benchmark/benchmark.h>
@@ -299,13 +299,13 @@ static void BM_FindHit_Random_Large(benchmark::State &state) {
 // Original scenarios: 5 scenarios x 6 impls x 3 load factors
 #define REGISTER_ALL(BM, Load)                                                 \
   BENCHMARK(BM<ChainingHashMap<Load>>)->Range(1 << 8, 1 << 16);               \
-  BENCHMARK(BM<ChainingHashMapV2<Load>>)->Range(1 << 8, 1 << 16);             \
+  BENCHMARK(BM<ChainingPoolHashMap<Load>>)->Range(1 << 8, 1 << 16);             \
   BENCHMARK(BM<LinearProbingHashMap<Load>>)->Range(1 << 8, 1 << 16);          \
   /* BENCHMARK(BM<LinearProbingHashMap<Load, true>>)->Range(1 << 8, 1 << 16); */ \
   /* BENCHMARK(BM<LinearProbingHashMap<Load, false, true>>)->Range(1 << 8, 1 << 16); */ \
   BENCHMARK(BM<RobinHoodHashMap<Load>>)->Range(1 << 8, 1 << 16);             \
   BENCHMARK(BM<RobinHoodHashMap<Load, true>>)->Range(1 << 8, 1 << 16);      \
-  BENCHMARK(BM<RobinHoodHashMapV2<Load>>)->Range(1 << 8, 1 << 16);           \
+  BENCHMARK(BM<RobinHoodStoredDistHashMap<Load>>)->Range(1 << 8, 1 << 16);           \
   BENCHMARK(BM<StdUnorderedMapAdapter<Load>>)->Range(1 << 8, 1 << 16)
 
 REGISTER_ALL(BM_Insert, 0.5);
@@ -334,13 +334,13 @@ REGISTER_ALL(BM_EraseChurn, 0.9);
 // Load factor is not the variable here — key distribution is.
 #define REGISTER_HASH(BM)                                                      \
   BENCHMARK(BM<ChainingHashMap<0.75>>)->Range(1 << 8, 1 << 16);               \
-  BENCHMARK(BM<ChainingHashMapV2<0.75>>)->Range(1 << 8, 1 << 16);             \
+  BENCHMARK(BM<ChainingPoolHashMap<0.75>>)->Range(1 << 8, 1 << 16);             \
   BENCHMARK(BM<LinearProbingHashMap<0.75>>)->Range(1 << 8, 1 << 16);          \
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, true>>)->Range(1 << 8, 1 << 16); */ \
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, false, true>>)->Range(1 << 8, 1 << 16); */ \
   BENCHMARK(BM<RobinHoodHashMap<0.75>>)->Range(1 << 8, 1 << 16);             \
   BENCHMARK(BM<RobinHoodHashMap<0.75, true>>)->Range(1 << 8, 1 << 16);      \
-  BENCHMARK(BM<RobinHoodHashMapV2<0.75>>)->Range(1 << 8, 1 << 16);           \
+  BENCHMARK(BM<RobinHoodStoredDistHashMap<0.75>>)->Range(1 << 8, 1 << 16);           \
   BENCHMARK(BM<StdUnorderedMapAdapter<0.75>>)->Range(1 << 8, 1 << 16)
 
 REGISTER_HASH(BM_Insert_Random);
@@ -356,13 +356,13 @@ REGISTER_HASH(BM_FindHit_Strided);
 // 1<<22 (~50MB) is fully cache-cold.
 #define REGISTER_LARGE(BM)                                                     \
   BENCHMARK(BM<ChainingHashMap<0.75>>)->Range(1 << 16, 1 << 22);              \
-  BENCHMARK(BM<ChainingHashMapV2<0.75>>)->Range(1 << 16, 1 << 22);            \
+  BENCHMARK(BM<ChainingPoolHashMap<0.75>>)->Range(1 << 16, 1 << 22);            \
   BENCHMARK(BM<LinearProbingHashMap<0.75>>)->Range(1 << 16, 1 << 22);         \
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, true>>)->Range(1 << 16, 1 << 22); */ \
   /* BENCHMARK(BM<LinearProbingHashMap<0.75, false, true>>)->Range(1 << 16, 1 << 22); */ \
   BENCHMARK(BM<RobinHoodHashMap<0.75>>)->Range(1 << 16, 1 << 22);            \
   BENCHMARK(BM<RobinHoodHashMap<0.75, true>>)->Range(1 << 16, 1 << 22);     \
-  BENCHMARK(BM<RobinHoodHashMapV2<0.75>>)->Range(1 << 16, 1 << 22);          \
+  BENCHMARK(BM<RobinHoodStoredDistHashMap<0.75>>)->Range(1 << 16, 1 << 22);          \
   BENCHMARK(BM<StdUnorderedMapAdapter<0.75>>)->Range(1 << 16, 1 << 22)
 
 REGISTER_LARGE(BM_Insert_Large);

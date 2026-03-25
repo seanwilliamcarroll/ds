@@ -1,9 +1,9 @@
 #include "chaining_hash_map.hpp"
-#include "chaining_hash_map_v2.hpp"
+#include "chaining_pool_hash_map.hpp"
 #include "linear_probing_hash_map.hpp"
 #include "linear_probing_hash_map_merged.hpp"
 #include "robin_hood_hash_map.hpp"
-#include "robin_hood_hash_map_v2.hpp"
+#include "robin_hood_stored_dist_hash_map.hpp"
 #include "std_unordered_map_adapter.hpp"
 
 #include <gtest/gtest.h>
@@ -13,14 +13,14 @@ template <typename T> class HashMapTest : public ::testing::Test {};
 // clang-format off
 using HashMapTypes = ::testing::Types<
     ChainingHashMap<0.5>,            ChainingHashMap<0.75>,            ChainingHashMap<0.9>,
-    ChainingHashMapV2<0.5>,          ChainingHashMapV2<0.75>,          ChainingHashMapV2<0.9>,
+    ChainingPoolHashMap<0.5>,          ChainingPoolHashMap<0.75>,          ChainingPoolHashMap<0.9>,
     LinearProbingHashMap<0.5>,       LinearProbingHashMap<0.75>,       LinearProbingHashMap<0.9>,
     LinearProbingHashMap<0.5, true>, LinearProbingHashMap<0.75, true>, LinearProbingHashMap<0.9, true>,
     LinearProbingHashMap<0.5, false, true>, LinearProbingHashMap<0.75, false, true>, LinearProbingHashMap<0.9, false, true>,
     LinearProbingMergedStructHashMap<0.5>, LinearProbingMergedStructHashMap<0.75>, LinearProbingMergedStructHashMap<0.9>,
     RobinHoodHashMap<0.5>,           RobinHoodHashMap<0.75>,           RobinHoodHashMap<0.9>,
     RobinHoodHashMap<0.5, true>,     RobinHoodHashMap<0.75, true>,     RobinHoodHashMap<0.9, true>,
-    RobinHoodHashMapV2<0.5>,         RobinHoodHashMapV2<0.75>,         RobinHoodHashMapV2<0.9>,
+    RobinHoodStoredDistHashMap<0.5>,         RobinHoodStoredDistHashMap<0.75>,         RobinHoodStoredDistHashMap<0.9>,
     StdUnorderedMapAdapter<0.5>,     StdUnorderedMapAdapter<0.75>,     StdUnorderedMapAdapter<0.9>
 >;
 // clang-format on
