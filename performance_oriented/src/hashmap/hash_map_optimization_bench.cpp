@@ -86,6 +86,18 @@ REGISTER_PAIR(ChainingHashMap_UniquePtr, ChainingHashMap_PoolAllocator);
 
 #undef REGISTER_PAIR
 
+// Large-scale AoS comparison: 64K to 4M entries.
+// The AoS regression grows with scale as the inflated working set thrashes L2.
+#define REGISTER_LARGE(BM, Pattern)                                            \
+  BENCHMARK(BM<LinearProbingHashMap_SoA, Pattern>)->Range(1 << 16, 1 << 22);  \
+  BENCHMARK(BM<LinearProbingHashMap_MergedStruct, Pattern>)->Range(1 << 16, 1 << 22)
+
+REGISTER_LARGE(BM_Insert, KeyPattern::SEQUENTIAL);
+REGISTER_LARGE(BM_FindHit, KeyPattern::SEQUENTIAL);
+REGISTER_LARGE(BM_FindHit, KeyPattern::UNIFORM);
+
+#undef REGISTER_LARGE
+
 // clang-format on
 
 BENCHMARK_MAIN();
