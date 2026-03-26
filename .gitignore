@@ -4,5 +4,6 @@ build-release/
 compile_commands.json
 .cache/
 *.csv
+!reports/*.csv
 *.html
 .DS_Store
