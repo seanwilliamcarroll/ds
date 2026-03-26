@@ -98,10 +98,10 @@ Bold marks the winner in each row.
 
 | Scenario | LP | RH | Chain | std |
 |---|---:|---:|---:|---:|
-| Insert | **117K** | 196K | 2.22M | 1.18M |
-| FindHit | **45.4K** | 48.7K | 54.0K | 97.5K |
-| FindMiss | 39.5K | **32.6K** | 36.9K | 76.9K |
-| EraseAndFind | **21.0K** | 25.8K | 314K | 349K |
+| Insert | **117.4K** | 197.7K | 2.30M | 1.20M |
+| FindHit | **45.6K** | 48.7K | 51.7K | 97.6K |
+| FindMiss | 48.8K | **32.6K** | 37.6K | 80.7K |
+| EraseAndFind | **21.2K** | 25.9K | 319.6K | 354.3K |
 
 LP wins three of four scenarios. RH takes FindMiss. Open addressing dominates.
 
@@ -112,13 +112,13 @@ EraseAndFind. FindHit is the one where all four bars are close. -->
 
 ### Analysis
 
-**Insert** — LP is fastest, as predicted. But it's 19x faster than chaining. We
+**Insert** — LP is fastest, as predicted. But it's 20x faster than chaining. We
 expected maybe 2-3x. And our chaining is slower than `std` — we predicted the
 opposite. `std::unordered_map`'s allocator handles per-node allocation better
 than our naive `make_unique` calls.
 
 **FindHit** — We predicted RH fastest thanks to its more uniform probe
-distribution. In reality, LP, RH, and Chain are all within 8% of each other.
+distribution. In reality, LP, RH, and Chain are all within 13% of each other.
 The table is about 780KB at this size — well beyond L1 cache (128KB on M4). At
 this scale, the cost of a cache miss dominates the number of probes. Whether you
 probe 2 slots or 4, you're paying for the same DRAM round trip.
@@ -138,7 +138,7 @@ miss dwarfs the algorithmic difference in probe count.
 
 ### The tempting conclusion
 
-Open addressing dominates. LP wins three of four scenarios. Chaining is 15-19x
+Open addressing dominates. LP wins three of four scenarios. Chaining is 15-20x
 slower on insert and erase. Case closed?
 
 This is where many performance blog posts would end. We almost did. But I kept
@@ -157,22 +157,22 @@ potential cache miss.
 
 | Scenario | LP | RH | Chain | std |
 |---|---:|---:|---:|---:|
-| Insert | **705K** | 1.05M | 4.26M | 2.09M |
-| FindHit | 128K | 127K | **125K** | 324K |
-| FindMiss | 403K | **233K** | 233K | 322K |
-| EraseAndFind | 106K | **74.0K** | 561K | 475K |
+| Insert | **698.3K** | 1.01M | 4.33M | 2.10M |
+| FindHit | **127.3K** | 138.3K | 149.4K | 356.0K |
+| FindMiss | 423.4K | 289.4K | **272.9K** | 589.0K |
+| EraseAndFind | 102.3K | **62.7K** | 566.3K | 477.0K |
 
 ### Analysis
 
 The sequential results were partly cache flattery. The hardware prefetcher was
 doing work that open addressing got credit for. Without it, the gaps shrink:
-LP's insert advantage drops from 19x to 6x over chaining. FindHit becomes a
-three-way tie — chaining, LP, and RH are within 3% of each other. RH takes
-EraseAndFind from LP.
+LP's insert advantage drops from 20x to 6x over chaining. FindHit stays close
+— LP, RH, and Chain are within 17% of each other. RH takes EraseAndFind
+from LP.
 
 The asymmetry is revealing: random keys hurt open addressing far more than
 chaining. LP's insert slows down 6x from sequential; chaining's slows down
-1.9x. LP's FindMiss is the most dramatic — 10.2x slower, as scattered miss
+1.9x. LP's FindMiss is the most dramatic — 8.7x slower, as scattered miss
 probes through tombstones are expensive when every probe is a cache miss. The
 pointer chasing that made chaining slow with sequential keys matters less when
 open addressing's flat-array scans aren't benefiting from the prefetcher anyway.
@@ -201,18 +201,18 @@ when thousands of keys hash to the same neighborhood?
 
 | Scenario | LP | RH | Chain | std |
 |---|---:|---:|---:|---:|
-| Insert | 744M !! | 2,041M !! | 4.35M | **2.08M** |
-| FindHit | 522M !! | 602M !! | 513K | **313K** |
-| FindMiss | 80.1K | **33.1K** | 47.9K | 438K |
-| EraseAndFind | 786M !! | 52.6M !! | 528K | **456K** |
+| Insert | 755M !! | 2,049M !! | 4.37M | **2.11M** |
+| FindHit | 525M !! | 608M !! | 493K | **363K** |
+| FindMiss | 2.18M !! | 2.46M !! | **50.8K** | 344K |
+| EraseAndFind | 789M !! | 52.5M !! | 589K | **449K** |
 
-The `!!` numbers are catastrophic — hundreds of milliseconds to two seconds
-per batch on just 65,536 entries.
+The `!!` numbers are catastrophic — millions of nanoseconds to two seconds
+per batch on just 65,536 entries. And it's not just Insert and FindHit this
+time. FindMiss joins the disaster for both open addressing implementations.
 
 <!-- CHART: This is the most important visualization in the post. Two options:
 (a) Log-scale bar chart, all four implementations × 4 scenarios. The LP/RH
-bars for Insert/FindHit/EraseAndFind tower over Chain/std by 3+ orders of
-magnitude. FindMiss is the exception where RH is still competitive.
+bars tower over Chain/std by 3+ orders of magnitude across ALL scenarios.
 (b) Side-by-side panels: left panel shows Chain and std at linear scale (sub-ms),
 right panel shows LP and RH at a different scale (hundreds of ms to seconds).
 The contrast between panels IS the story. -->
@@ -221,8 +221,8 @@ The contrast between panels IS the story. -->
 
 Open addressing with identity hash went quadratic.
 
-LP's Insert takes 744 million nanoseconds — 6,341x slower than with sequential
-keys. LP's FindHit takes 522 million — 11,477x slower. These aren't "slow."
+LP's Insert takes 755 million nanoseconds — 6,431x slower than with sequential
+keys. LP's FindHit takes 525 million — 11,500x slower. These aren't "slow."
 They're broken. The normal distribution creates a massive cluster around N/2,
 and with identity hash mapping those keys directly to those slots, every insert
 and find has to probe through the entire cluster.
@@ -234,7 +234,7 @@ displaces another, propagating through thousands of entries. Its backshift
 deletion (shifting elements backward on erase to avoid tombstones) causes the
 same cascading effect in reverse.
 
-Chaining barely notices. Chain FindHit goes from 54K (sequential) to 513K
+Chaining barely notices. Chain FindHit goes from 52K (sequential) to 493K
 (normal) — a 9.5x slowdown, not an 11,000x one. The clustered buckets have
 longer chains, but each chain is independent. There's no cascading effect.
 Remember our prediction that "chaining degrades gracefully"? We were right —
@@ -246,27 +246,22 @@ chaining under the hood, so it's immune to the clustering catastrophe. Its
 node-based allocation, which was a liability with sequential keys, is irrelevant
 when the alternative is probing through 50,000 occupied slots.
 
-FindMiss is the revealing exception — but not for the reason I first thought.
+FindMiss completes the picture. With sequential and uniform keys, FindMiss
+was the one scenario where open addressing held up well — RH's early
+termination and LP's short probes kept miss lookups fast. I expected the same
+with normal keys. The miss keys hash to completely different slots than the
+hit keys (we verified: 0% home slot overlap). How could a cluster hurt you
+if your keys don't even hash near it?
 
-RH's FindMiss scores 33.1K with normal keys, nearly identical to its 32.6K
-with sequential. Robin Hood's early termination means a miss lookup stops as
-soon as it encounters an occupant with a *shorter* probe distance than its
-own. Even inside the cluster, that happens quickly. Chaining is similarly
-fast: collisions are vertical (longer chains at the same bucket), not
-horizontal (spilling into neighbors). An empty bucket stays empty no matter
-how dense the neighboring buckets are.
+It turns out open addressing's displacement mechanism spreads the cluster far
+beyond its home slots. The hit keys cluster around home slots near N/2, but
+collisions push displaced entries into neighboring slots, which push *their*
+neighbors further out. At N=65,536 (table size 131,072), the cluster extends
+across 23,000+ contiguous occupied slots — roughly 18% of the table. Miss
+keys that hash to "empty" regions land inside this occupied run and have to
+probe all the way to the far edge.
 
-LP tells a different story. You'd expect miss lookups to escape the cluster
-— miss keys hash to completely different slots (we verified: 0% home slot
-overlap with hit keys). But LP's displacement mechanism spreads the cluster
-far beyond its home slots. Collisions at popular home slots push displaced
-entries into neighboring slots, which push *their* neighbors further out. At
-N=65,536 (table size 131,072), the cluster extends across 23,000+ contiguous
-occupied slots — roughly 18% of the table. Miss keys that hash to "empty"
-regions land inside this occupied run and have to probe all the way to the
-far edge.
-
-We added probe counting to confirm:
+We added probe counting to LP to confirm:
 
 | N | Avg probes per miss | Max probes per miss |
 |---|---|---|
@@ -279,6 +274,19 @@ to get there. This isn't a cache problem — we ran a warm-up pass to
 pre-populate the cache and it made zero difference. It's genuine
 O(cluster_size) probing.
 
+Robin Hood doesn't escape either. I initially expected RH's early termination
+to save it — a miss lookup should stop as soon as it sees an occupant with a
+shorter probe distance. But the miss keys land among entries that have been
+displaced *far* from their home slots. These displaced entries have very high
+probe distances, so early termination never fires — the occupant's probe
+distance is always greater than the searcher's. RH scores 2.46M on
+FindMiss/Normal, slightly *worse* than LP's 2.18M.
+
+Only chaining is immune. Chaining's collisions are vertical (longer chains at
+the same bucket), not horizontal (spilling into neighbors). An empty bucket
+stays empty no matter how dense the neighboring buckets are. Chain scores
+50.8K — barely different from its 37.6K with sequential keys.
+
 The normal distribution doesn't just make *your* keys slow to find — it
 pollutes the entire table, making *unrelated* keys slow too. The cluster is
 contagious.
@@ -290,15 +298,15 @@ Here's which implementation wins each scenario, by key distribution:
 | Scenario | Sequential | Uniform | Normal |
 |---|---|---|---|
 | Insert | LP | LP | std |
-| FindHit | LP | Chain/RH/LP (tied) | std |
-| FindMiss | RH | RH/Chain (tied) | RH |
+| FindHit | LP | LP | std |
+| FindMiss | RH | Chain | Chain |
 | EraseAndFind | LP | RH | std |
 
 <!-- CHART: Color-coded grid/heatmap — rows are scenarios, columns are key
 distributions, cells show the winner. Green for LP, blue for RH, orange for
 Chain, red for std. The visual: Act 1 is all green, Act 2 is mixed, Act 3
-is mostly red. The color shift across columns tells the whole story at a
-glance. -->
+is mostly red/orange. The color shift across columns tells the whole story
+at a glance. -->
 
 No implementation wins everywhere. The "best" hash map depends entirely on your
 key distribution — which, when you're using identity hash, is a fancy way of
@@ -311,14 +319,14 @@ thought we understood hash map performance. Then we changed the key distribution
 and every conclusion inverted.
 
 The thing that sticks with me is how confident the sequential results felt.
-LP was 19x faster — that's not a marginal difference you can explain away. It
+LP was 20x faster — that's not a marginal difference you can explain away. It
 felt like a settled question. But the result was an artifact of the best-case
 input, and the best case is the one you should trust least.
 
 Every optimization is a tradeoff built on an assumption: about the input, the
 hardware, the access pattern. Open addressing assumes keys scatter reasonably
 across the table. Identity hash assumes the keys are already well-distributed.
-When those assumptions hold, you get 19x wins. When they don't, you get 11,000x
+When those assumptions hold, you get 20x wins. When they don't, you get 11,000x
 losses. The question isn't "which hash map is fastest?" It's "what does your
 data actually look like, and how badly does your design degrade when you're
 wrong about that?"

@@ -1,3 +1,7 @@
+**Note:** This analysis is stale — it incorrectly claims RH escapes via early
+termination. With correct miss keys, RH is also slow (2.46M). The updated
+analysis is in `posts/hash_map_baseline.md`.
+
 # LP Cluster Contagion: Miss Keys Probe Through Displaced Entries
 
 ## The finding

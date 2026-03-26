@@ -1,3 +1,6 @@
+**Note:** This outline is stale. The actual post is `posts/hash_map_baseline.md`
+— refer to that for current numbers and analysis.
+
 # Post 1: "Your Hash Map Hypotheses Are Probably Wrong"
 
 ## Hook
@@ -133,10 +136,10 @@ Sequential keys first. This is where most benchmarks stop.
 
 | Scenario | LP | RH | Chain | std |
 |---|---:|---:|---:|---:|
-| Insert | **117K** | 196K | 2.22M | 1.18M |
-| FindHit | **45.4K** | 48.7K | 54.0K | 97.5K |
-| FindMiss | 39.5K | **32.6K** | 36.9K | 76.9K |
-| EraseAndFind | **21.0K** | 25.8K | 314K | 349K |
+| Insert | **117.4K** | 197.7K | 2.30M | 1.20M |
+| FindHit | **45.6K** | 48.7K | 51.7K | 97.6K |
+| FindMiss | 48.8K | **32.6K** | 37.6K | 80.7K |
+| EraseAndFind | **21.2K** | 25.9K | 319.6K | 354.3K |
 
 (EraseChurn omitted for now — per-iteration numbers too small for this table's
 format. Can include if it adds to the narrative.)
