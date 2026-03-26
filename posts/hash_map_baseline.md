@@ -164,33 +164,31 @@ potential cache miss.
 
 ### Analysis
 
-The sequential results were partly cache flattery. The hardware prefetcher was
-doing work that open addressing got credit for. Without it, the gaps shrink:
-LP's insert advantage drops from 20x to 6x over chaining. FindHit stays close
-— LP, RH, and Chain are within 17% of each other. RH takes EraseAndFind
-from LP.
+The sequential results were partly cache flattery — the hardware prefetcher
+was doing work that open addressing got credit for. Removing that subsidy
+reveals how much of Act 1's gap was the algorithm and how much was the
+hardware.
 
-The asymmetry is revealing: random keys hurt open addressing far more than
-chaining. LP's insert slows down 6x from sequential; chaining's slows down
-1.9x. LP's FindMiss is the most dramatic — 8.7x slower, as scattered miss
-probes through tombstones are expensive when every probe is a cache miss. The
-pointer chasing that made chaining slow with sequential keys matters less when
-open addressing's flat-array scans aren't benefiting from the prefetcher anyway.
+LP's insert advantage drops from 20x to 6x over chaining. FindHit stays
+close — LP, RH, and Chain are within 17% of each other. RH takes
+EraseAndFind from LP. And the asymmetry is consistent: random keys hurt
+open addressing far more than chaining. LP's insert slows down 6x from
+sequential; chaining's slows down 1.9x. LP's FindMiss is the most dramatic
+— 8.7x slower, as scattered miss probes through tombstones are expensive
+when every probe is a cache miss.
 
-But open addressing still wins on absolute numbers in most scenarios. Random
-keys hurt everyone — they just hurt open addressing more.
+The lesson: you can't separate the algorithm from the hardware. Sequential
+keys didn't just test the hash map — they tested the prefetcher. Open
+addressing still wins on absolute numbers here, but its margin is thinner
+than Act 1 suggested, and it's not clear how much further it can erode.
 
 ## Act 3: Normal keys
 
 After the uniform results, I kept thinking: how often does a real system insert
-sequential keys into a hash map? And if it does, wouldn't you use a more
-efficient bulk-loading strategy anyway?
-
-A `HashMap<std::string, MyType>` hashes strings — and string hashes are close
-to uniformly distributed regardless of input. But we're hashing integers with
-the identity function. With identity hash, the distribution of keys *is* the
-distribution of slots. And integer keys cluster in plenty of real scenarios —
-auto-increment IDs, timestamps, geographic coordinates, sensor readings.
+sequential keys into a hash map? With identity hash, the distribution of keys
+*is* the distribution of slots. And integer keys cluster in plenty of real
+scenarios — auto-increment IDs, timestamps, geographic coordinates, sensor
+readings.
 
 So we tried a normal distribution: keys centered at N/2, standard deviation N/8.
 About 68% of keys cluster into roughly N/4 consecutive slots. At load factor
@@ -207,8 +205,8 @@ when thousands of keys hash to the same neighborhood?
 | EraseAndFind | 789M !! | 52.5M !! | 589K | **449K** |
 
 The `!!` numbers are catastrophic — millions of nanoseconds to two seconds
-per batch on just 65,536 entries. And it's not just Insert and FindHit this
-time. FindMiss joins the disaster for both open addressing implementations.
+per batch on just 65,536 entries. Every scenario is catastrophic for open
+addressing — including FindMiss, which held up well in Acts 1 and 2.
 
 <!-- CHART: This is the most important visualization in the post. Two options:
 (a) Log-scale bar chart, all four implementations × 4 scenarios. The LP/RH
@@ -234,14 +232,14 @@ displaces another, propagating through thousands of entries. Its backshift
 deletion (shifting elements backward on erase to avoid tombstones) causes the
 same cascading effect in reverse.
 
-Chaining barely notices. Chain FindHit goes from 52K (sequential) to 493K
+Chaining barely notices. Chain FindHit goes from 51.7K (sequential) to 493K
 (normal) — a 9.5x slowdown, not an 11,000x one. The clustered buckets have
 longer chains, but each chain is independent. There's no cascading effect.
-Remember our prediction that "chaining degrades gracefully"? We were right —
-we just didn't appreciate what that would be worth until we saw the alternative.
+We predicted chaining would degrade gracefully. We were right — we just
+didn't appreciate what that would be worth until we saw the alternative.
 
-And `std::unordered_map` wins. Remember our prediction: "`std` is always
-slowest." Here it's the fastest on Insert, FindHit, and EraseAndFind. `std` is
+And `std::unordered_map` wins — the implementation we predicted would always
+be slowest. Here it's the fastest on Insert, FindHit, and EraseAndFind. `std` is
 chaining under the hood, so it's immune to the clustering catastrophe. Its
 node-based allocation, which was a liability with sequential keys, is irrelevant
 when the alternative is probing through 50,000 occupied slots.
@@ -291,9 +289,7 @@ The normal distribution doesn't just make *your* keys slow to find — it
 pollutes the entire table, making *unrelated* keys slow too. The cluster is
 contagious.
 
-### The full picture
-
-Here's which implementation wins each scenario, by key distribution:
+## Closing
 
 | Scenario | Sequential | Uniform | Normal |
 |---|---|---|---|
@@ -307,12 +303,6 @@ distributions, cells show the winner. Green for LP, blue for RH, orange for
 Chain, red for std. The visual: Act 1 is all green, Act 2 is mixed, Act 3
 is mostly red/orange. The color shift across columns tells the whole story
 at a glance. -->
-
-No implementation wins everywhere. The "best" hash map depends entirely on your
-key distribution — which, when you're using identity hash, is a fancy way of
-saying it depends on your data.
-
-## Closing
 
 We started with reasonable predictions, benchmarked with sequential keys, and
 thought we understood hash map performance. Then we changed the key distribution
