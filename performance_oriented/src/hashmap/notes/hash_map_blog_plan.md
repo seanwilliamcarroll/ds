@@ -57,6 +57,12 @@ conclusions that depend on FindMiss/Normal data:
   with properly-placed miss keys may be smaller.
 - **std::unordered_map "wins 3 of 4 normal scenarios"** — check if FindMiss/Normal still
   counts as a std win or if the rankings shift.
+- **LP cluster contagion section** — incorporate the finding that LP FindMiss/Normal is slow
+  despite 0% home slot overlap. Displacement spreads the cluster into a contiguous occupied run;
+  miss keys land inside it and probe O(cluster_size). Contrasts with RH (early termination
+  escapes) and chaining (vertical collisions, immune). Probe count table is compelling. See
+  `hash_map_lp_cluster_contagion.md` for full details. Already drafted into post 1 outline
+  Section 5.
 
 **Source material:**
 - `hash_map_post1_outline.md` — detailed outline

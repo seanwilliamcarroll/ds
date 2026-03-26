@@ -249,10 +249,37 @@ reasons.
 Insert, FindHit, and EraseAndFind. The implementation we treated as a punching bag
 is the most robust.
 
-**FindMiss is the exception.** RH's FindMiss is 33.1K with normal keys — nearly
-identical to its 32.6K with sequential. Miss probes hit the sparse tails of the
-distribution, not the dense core. The cluster doesn't hurt if you never probe into
-it.
+**FindMiss reveals LP's cluster contagion.** You'd expect miss lookups to escape
+the cluster — miss keys hash to completely different slots (verified: 0% home slot
+overlap with hit keys). For chaining and RH, that's exactly what happens. But LP
+miss keys are *still* slow because of displacement: the cluster's home slots are
+concentrated around N/2, but LP pushes displaced entries outward into a contiguous
+occupied run spanning 18% of the table (23K+ slots at N=65536). Miss keys that
+hash to "empty" regions land inside this occupied run and have to probe all the
+way to the far edge.
+
+Probe counting confirms the damage:
+
+| N | avg probes/miss | max probes/miss |
+|---|---|---|
+| 256 | 1.4 | 53 |
+| 4,096 | 4.6 | 839 |
+| 65,536 | 64.7 | 23,425 |
+
+Every lookup correctly returns "not found." It just takes thousands of probes to
+get there. This isn't a cache problem (warm-up pass made zero difference) — it's
+genuine O(cluster_size) probing.
+
+**Why RH and chaining escape.** RH's FindMiss is 33.1K with normal keys — nearly
+identical to its 32.6K with sequential. Robin Hood's early termination means a
+miss lookup stops as soon as it sees an occupant with a *shorter* probe distance,
+which happens quickly even inside the cluster. Chaining is immune for a different
+reason: collisions are vertical (longer chains at the same bucket), not horizontal
+(spilling into neighbors). An empty bucket stays empty no matter how dense the
+neighboring buckets are.
+
+The cluster doesn't just make *your* keys slow — it pollutes the entire table,
+making *unrelated* keys slow too. LP's cluster is contagious.
 
 ### The complete picture
 

@@ -246,11 +246,42 @@ chaining under the hood, so it's immune to the clustering catastrophe. Its
 node-based allocation, which was a liability with sequential keys, is irrelevant
 when the alternative is probing through 50,000 occupied slots.
 
-There's one exception. FindMiss with normal keys: RH scores 33.1K — nearly
-identical to its 32.6K with sequential keys. Miss probes don't hit the dense
-core. They start at a hashed slot, probe forward, and quickly find an empty
-slot in the sparse tails of the distribution. The cluster can't hurt you if
-you never enter it.
+FindMiss is the revealing exception — but not for the reason I first thought.
+
+RH's FindMiss scores 33.1K with normal keys, nearly identical to its 32.6K
+with sequential. Robin Hood's early termination means a miss lookup stops as
+soon as it encounters an occupant with a *shorter* probe distance than its
+own. Even inside the cluster, that happens quickly. Chaining is similarly
+fast: collisions are vertical (longer chains at the same bucket), not
+horizontal (spilling into neighbors). An empty bucket stays empty no matter
+how dense the neighboring buckets are.
+
+LP tells a different story. You'd expect miss lookups to escape the cluster
+— miss keys hash to completely different slots (we verified: 0% home slot
+overlap with hit keys). But LP's displacement mechanism spreads the cluster
+far beyond its home slots. Collisions at popular home slots push displaced
+entries into neighboring slots, which push *their* neighbors further out. At
+N=65,536 (table size 131,072), the cluster extends across 23,000+ contiguous
+occupied slots — roughly 18% of the table. Miss keys that hash to "empty"
+regions land inside this occupied run and have to probe all the way to the
+far edge.
+
+We added probe counting to confirm:
+
+| N | Avg probes per miss | Max probes per miss |
+|---|---|---|
+| 256 | 1.4 | 53 |
+| 4,096 | 4.6 | 839 |
+| 65,536 | 64.7 | 23,425 |
+
+Every lookup correctly returns "not found." It just takes thousands of probes
+to get there. This isn't a cache problem — we ran a warm-up pass to
+pre-populate the cache and it made zero difference. It's genuine
+O(cluster_size) probing.
+
+The normal distribution doesn't just make *your* keys slow to find — it
+pollutes the entire table, making *unrelated* keys slow too. The cluster is
+contagious.
 
 ### The full picture
 
